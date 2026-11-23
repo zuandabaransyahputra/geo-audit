@@ -3,8 +3,8 @@
  * the page, an action plan ordered by points per effort, and strengths. No AI API involved: every
  * sentence comes from a template and the same data the checks used, so it can never contradict them.
  */
-import { AI_BOTS } from './bots';
-import { botVerdicts, directivesFor, type CheckContext } from './checks';
+import type { CheckContext } from './checks';
+import { capitalise, list, PRODUCTS, productStatuses, type ProductStatus, type Visibility } from './products';
 import { categoryScore, impact, overallScore } from './score';
 import type { CategoryResult, CheckResult } from './types';
 
@@ -61,198 +61,12 @@ export const LEARN_MORE: Record<string, ArticleSlug> = {
 /* Who can see you                                                                                  */
 /* ------------------------------------------------------------------------------------------------ */
 
-export type Visibility = 'visible' | 'partly' | 'blocked';
+export type ProductVisibility = ProductStatus;
+export { PRODUCTS, type Visibility };
 
-export interface ProductVisibility {
-  id: string;
-  product: string;
-  /** What being visible here means. */
-  role: string;
-  /** training = the product only learns from you; answers = it can cite and link you. */
-  kind: 'answers' | 'training';
-  status: Visibility;
-  /**
-   * Status for being found and cited, ignoring training-only opt-outs (Google-Extended, Applebot-Extended,
-   * ClaudeBot, Perplexity-User aside). Same as `status` for training products.
-   */
-  answers: Visibility;
-  /** One sentence explaining the status. */
-  reason: string;
-  crawlers: { token: string; allowed: boolean; primary: boolean }[];
-  docs: string;
-}
-
-interface ProductSpec {
-  id: string;
-  product: string;
-  role: string;
-  kind: 'answers' | 'training';
-  /** Blocking any of these blocks the product. */
-  primary: string[];
-  /** Blocking these makes it "partly". */
-  secondary: string[];
-  docs: string;
-  /** Respects noindex as a hard stop (documented). */
-  noindexBlocks?: boolean;
-  /** Respects nosnippet / max-snippet:0 for its answers (documented). */
-  nosnippetLimits?: boolean;
-  /** Renders JavaScript, so a client-side app shell is less of a problem. */
-  rendersJs?: boolean;
-}
-
-export const PRODUCTS: ProductSpec[] = [
-  {
-    id: 'chatgpt-search',
-    product: 'ChatGPT search',
-    role: 'Shown and linked in ChatGPT search answers',
-    kind: 'answers',
-    primary: ['OAI-SearchBot'],
-    secondary: ['ChatGPT-User'],
-    docs: 'https://developers.openai.com/api/docs/bots',
-  },
-  {
-    id: 'chatgpt-training',
-    product: 'ChatGPT training',
-    role: 'Used to train OpenAI models',
-    kind: 'training',
-    primary: ['GPTBot'],
-    secondary: [],
-    docs: 'https://developers.openai.com/api/docs/bots',
-  },
-  {
-    id: 'claude',
-    product: 'Claude',
-    role: 'Found by Claude search, fetched when users ask, used for training',
-    kind: 'answers',
-    primary: ['Claude-SearchBot'],
-    secondary: ['Claude-User', 'ClaudeBot'],
-    docs: 'https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler',
-  },
-  {
-    id: 'perplexity',
-    product: 'Perplexity',
-    role: 'Shown and cited in Perplexity answers',
-    kind: 'answers',
-    primary: ['PerplexityBot'],
-    secondary: ['Perplexity-User'],
-    docs: 'https://docs.perplexity.ai/guides/bots',
-  },
-  {
-    id: 'google',
-    product: 'Google AI Overviews & Gemini',
-    role: 'AI Overviews and AI Mode in Search; Gemini training and grounding',
-    kind: 'answers',
-    primary: ['Googlebot'],
-    secondary: ['Google-Extended'],
-    docs: 'https://developers.google.com/search/docs/appearance/ai-features',
-    noindexBlocks: true,
-    nosnippetLimits: true,
-    rendersJs: true,
-  },
-  {
-    id: 'copilot',
-    product: 'Microsoft Copilot & Bing',
-    role: 'Bing search results and answers in Copilot',
-    kind: 'answers',
-    primary: ['Bingbot'],
-    secondary: [],
-    docs: 'https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0',
-    noindexBlocks: true,
-  },
-  {
-    id: 'apple',
-    product: 'Apple Intelligence & Siri',
-    role: 'Siri, Spotlight and Safari suggestions; Apple model training',
-    kind: 'answers',
-    primary: ['Applebot'],
-    secondary: ['Applebot-Extended'],
-    docs: 'https://support.apple.com/en-us/119829',
-    nosnippetLimits: true,
-  },
-  {
-    id: 'others',
-    product: 'Common Crawl & other model builders',
-    role: 'Open web datasets and model training (Common Crawl, ByteDance, Meta)',
-    kind: 'training',
-    primary: [],
-    secondary: ['CCBot', 'Bytespider', 'meta-externalagent'],
-    docs: 'https://commoncrawl.org/ccbot',
-  },
-];
-
-const RANK: Record<Visibility, number> = { visible: 0, partly: 1, blocked: 2 };
-const worse = (a: Visibility, b: Visibility): Visibility => (RANK[b] > RANK[a] ? b : a);
-
-export function visibility(ctx: CheckContext, checks: CheckResult[]): ProductVisibility[] {
-  const verdicts = new Map(botVerdicts(ctx, AI_BOTS).map((v) => [v.bot.token, v.allowed]));
-  const allowed = (token: string) => verdicts.get(token) ?? true;
-  const byId = new Map(checks.map((c) => [c.id, c]));
-  const directives = directivesFor(ctx).flatMap((d) => d.directives);
-  const noindex = directives.some((d) => d === 'noindex' || d === 'none');
-  const nosnippet = directives.some((d) => d === 'nosnippet' || d === 'max-snippet:0');
-  const jsOnly = byId.get('server-rendered-text')?.status === 'fail';
-  const status = ctx.inputs.page.status;
-  const gone = status === 404 || status === 410;
-  const errorStatus = !gone && (status < 200 || status >= 300);
-
-  return PRODUCTS.map((p) => {
-    const crawlers = [
-      ...p.primary.map((token) => ({ token, allowed: allowed(token), primary: true })),
-      ...p.secondary.map((token) => ({ token, allowed: allowed(token), primary: false })),
-    ];
-    const trainingOnly = (token: string) => AI_BOTS.find((b) => b.token === token)?.purpose === 'training';
-    let st: Visibility = 'visible';
-    let ans: Visibility = 'visible';
-    const both = (v: Visibility, answersToo = true) => {
-      st = worse(st, v);
-      if (answersToo) ans = worse(ans, v);
-    };
-    const reasons: string[] = [];
-    const blocked = crawlers.filter((c) => !c.allowed);
-
-    if (blocked.length) {
-      const isTraining = (c: (typeof crawlers)[number]) => p.kind === 'answers' && !c.primary && trainingOnly(c.token);
-      const main = blocked.filter((c) => !isTraining(c)).map((c) => c.token);
-      const training = blocked.filter(isTraining).map((c) => c.token);
-      const trainingText = training.length ? `${list(training)} (training only)` : '';
-      reasons.push(`robots.txt blocks ${main.length && training.length ? `${list(main)}, and ${trainingText}` : main.length ? list(main) : trainingText}`);
-    }
-    for (const c of blocked) {
-      if (!p.primary.length) {
-        // A group of equal crawlers: all blocked = blocked, some = partly.
-        both(blocked.length === crawlers.length ? 'blocked' : 'partly');
-      } else if (c.primary) both('blocked');
-      else both('partly', p.kind === 'training' || !trainingOnly(c.token));
-    }
-    if (gone) {
-      both('blocked');
-      reasons.push(`the page returns HTTP ${status}`);
-    } else if (errorStatus) {
-      both('partly');
-      reasons.push(`the page returned HTTP ${status} to our crawler, and AI crawlers may get the same`);
-    }
-    if (p.kind === 'answers' && noindex) {
-      both(p.noindexBlocks ? 'blocked' : 'partly');
-      reasons.push(p.noindexBlocks ? 'the page is marked noindex' : 'the page is marked noindex, which this product may honour');
-    }
-    if (p.kind === 'answers' && nosnippet && p.nosnippetLimits) {
-      both('partly');
-      reasons.push('nosnippet / max-snippet:0 stops it quoting the page');
-    }
-    if (jsOnly && !p.rendersJs) {
-      both('partly');
-      reasons.push('the text only appears after JavaScript runs, which most AI crawlers skip');
-    }
-
-    let reason: string;
-    if (!reasons.length) {
-      reason = p.kind === 'training' ? 'Its crawlers are allowed, so it can learn from this page.' : 'Its crawlers are allowed and the page is readable.';
-    } else {
-      reason = `${capitalise(reasons.join('; '))}.`;
-      if (p.kind === 'answers' && ans === 'visible') reason += ' It can still find and cite the page.';
-    }
-    return { id: p.id, product: p.product, role: p.role, kind: p.kind, status: st, answers: ans, reason, crawlers, docs: p.docs };
-  });
+/** Per-product status; the same data the ai-search-bots score and the score cap use. */
+export function visibility(ctx: CheckContext): ProductVisibility[] {
+  return productStatuses(ctx);
 }
 
 /* ------------------------------------------------------------------------------------------------ */
@@ -427,12 +241,6 @@ const GAP: Record<string, string> = {
   viewport: 'the page has no mobile viewport',
 };
 
-function list(items: string[]): string {
-  if (items.length <= 1) return items[0] ?? '';
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
-}
-
 const CATEGORY_NAME: Record<string, string> = {
   'ai-access': 'AI access',
   content: 'AI-readable content',
@@ -507,12 +315,6 @@ export function summary(input: { domain: string; score: number; categories: Cate
   return out.join(' ');
 }
 
-function capitalise(s: string): string {
-  // File names like robots.txt stay lower case.
-  if (/^[a-z-]+\.txt\b/.test(s)) return s;
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 /* ------------------------------------------------------------------------------------------------ */
 
 export interface Insights {
@@ -523,8 +325,7 @@ export interface Insights {
 }
 
 export function buildInsights(ctx: CheckContext, domain: string, categories: CategoryResult[]): Insights {
-  const checks = categories.flatMap((c) => c.checks);
-  const vis = visibility(ctx, checks);
+  const vis = visibility(ctx);
   const plan = actionPlan(categories);
   return {
     summary: summary({ domain, score: overallScore(categories), categories, visibility: vis, plan }),

@@ -1,26 +1,15 @@
-import { AI_BOTS, type Bot } from '../bots';
-import { isAllowed } from '../robots';
+import { SCORED_BOTS, type Bot } from '../bots';
+import { botVerdicts, directivesFor, list, productStatuses } from '../products';
 import type { CheckResult, Status } from '../types';
 import { plural, result, type CheckContext, type Spec } from './shared';
-
-export function botVerdicts(ctx: CheckContext, bots: Bot[]) {
-  const path = ctx.url.pathname + ctx.url.search;
-  return bots.map((bot) => {
-    if (ctx.robotsState === 'server-error' || ctx.robotsState === 'error') {
-      return { bot, allowed: false, reason: 'robots.txt could not be fetched, so careful crawlers stay away' };
-    }
-    if (!ctx.robots) return { bot, allowed: true, reason: '' };
-    const v = isAllowed(ctx.robots, bot.token, path);
-    const group = v.matchedAgent === '*' ? 'User-agent: *' : `User-agent: ${bot.token}`;
-    const reason = v.rule ? `\`${v.rule.allow ? 'Allow' : 'Disallow'}: ${v.rule.pattern}\` (line ${v.rule.line}, ${group})` : '';
-    return { bot, allowed: v.allowed, reason };
-  });
-}
 
 function robotsAllowSnippet(ctx: CheckContext, bots: Bot[]): string {
   const sitemap = ctx.robots?.sitemaps[0] ?? `${ctx.url.origin}/sitemap.xml`;
   return [...bots.map((b) => `User-agent: ${b.token}`), 'Allow: /', '', `Sitemap: ${sitemap}`].join('\n');
 }
+
+const TIER_WEIGHT = { major: 1, other: 0.5 } as const;
+const VALUE = { visible: 1, partly: 0.5, blocked: 0 } as const;
 
 export function checkAiSearchBots(ctx: CheckContext): CheckResult {
   const spec: Spec = {
@@ -30,20 +19,26 @@ export function checkAiSearchBots(ctx: CheckContext): CheckResult {
     weight: 5,
     why: 'ChatGPT, Claude, Perplexity and Google AI Overviews can only cite pages their crawlers are allowed to fetch.',
   };
-  const bots = AI_BOTS.filter((b) => b.purpose !== 'training');
+  const bots = SCORED_BOTS().filter((b) => b.purpose !== 'training');
   const verdicts = botVerdicts(ctx, bots);
   const blocked = verdicts.filter((v) => !v.allowed);
-  const details = verdicts.map((v) => `${v.allowed ? 'allowed' : 'BLOCKED'}  ${v.bot.token} (${v.bot.role})${!v.allowed && v.reason ? `: ${v.reason}` : ''}`);
+  const details = verdicts.map(
+    (v) => `${v.allowed ? 'allowed' : 'BLOCKED'}  ${v.bot.token} (${v.bot.role}${v.bot.robotsTxt === 'may-ignore' ? '; may ignore robots.txt' : ''})${!v.allowed && v.reason ? `: ${v.reason}` : ''}`,
+  );
   if (!blocked.length) {
     return result(spec, 'pass', `All ${bots.length} search and assistant crawlers are allowed${ctx.robots ? '' : ' (no robots.txt rules apply)'}.`, { details });
   }
-  const score = 1 - blocked.length / bots.length;
+  // Scored per product, so a handful of small crawlers cannot dilute a blocked major one.
+  const products = productStatuses(ctx).filter((p) => p.kind === 'answers');
+  const total = products.reduce((n, p) => n + TIER_WEIGHT[p.tier], 0);
+  const score = total ? products.reduce((n, p) => n + TIER_WEIGHT[p.tier] * VALUE[p.robots], 0) / total : 1;
   const core = blocked.some((v) => v.bot.token === 'Googlebot' || v.bot.token === 'Bingbot');
   const status: Status = core || score < 0.5 ? 'fail' : 'warn';
+  const shut = products.filter((p) => p.robots === 'blocked').map((p) => p.product);
   return result(
     spec,
     status,
-    `${plural(blocked.length, 'crawler')} blocked: ${blocked.map((v) => v.bot.token).join(', ')}.`,
+    `${plural(blocked.length, 'crawler')} blocked: ${blocked.map((v) => v.bot.token).join(', ')}.${shut.length ? ` That shuts out ${list(shut)}.` : ''}`,
     {
       details,
       fix: {
@@ -67,7 +62,7 @@ export function checkAiTrainingBots(ctx: CheckContext): CheckResult {
     weight: 1,
     why: 'Training crawlers decide whether models learn about you at all; blocking them is a valid choice, but it makes you less known to assistants.',
   };
-  const bots = AI_BOTS.filter((b) => b.purpose === 'training');
+  const bots = SCORED_BOTS().filter((b) => b.purpose === 'training');
   const verdicts = botVerdicts(ctx, bots);
   const blocked = verdicts.filter((v) => !v.allowed);
   const details = verdicts.map((v) => `${v.allowed ? 'allowed' : 'blocked'}  ${v.bot.token} (${v.bot.role})${!v.allowed && v.reason ? `: ${v.reason}` : ''}`);
@@ -121,34 +116,12 @@ export function checkRobotsTxt(ctx: CheckContext): CheckResult {
           fix: { text: 'Every line should be `Field: value` (User-agent, Allow, Disallow, Sitemap), and rules must come after a User-agent line.' },
         });
       }
-      return result(spec, 'pass', `robots.txt found: ${plural(groups, 'group')}, ${plural(r.sitemaps.length, 'sitemap')} referenced.`);
+      const signals = r.contentSignals.map(
+        (c) => `Content-Signal (${c.agents.length ? c.agents.map((a) => `User-agent: ${a}`).join(', ') : 'all crawlers'}, line ${c.line}): ${Object.entries(c.signals).map(([k, v]) => `${k}=${v}`).join(', ')}`,
+      );
+      return result(spec, 'pass', `robots.txt found: ${plural(groups, 'group')}, ${plural(r.sitemaps.length, 'sitemap')} referenced${signals.length ? `, ${plural(signals.length, 'Content-Signal line')}` : ''}.`, signals.length ? { details: signals } : {});
     }
   }
-}
-
-export function directivesFor(ctx: CheckContext): { source: string; directives: string[] }[] {
-  const out: { source: string; directives: string[] }[] = [];
-  const split = (s: string) => s.toLowerCase().split(/\s*,\s*/).map((d) => d.trim()).filter(Boolean);
-  const names = ['robots', 'googlebot', 'bingbot', ...AI_BOTS.map((b) => b.token.toLowerCase())];
-  for (const n of names) {
-    for (const c of ctx.page.meta.get(n) ?? []) out.push({ source: `<meta name="${n}">`, directives: split(c) });
-  }
-  const header = ctx.inputs.page.headers['x-robots-tag'];
-  if (header) {
-    // "googlebot: noindex, nofollow, otherbot: noarchive" or plain "noindex"
-    let agent = '*';
-    const buckets = new Map<string, string[]>();
-    for (const part of header.split(',')) {
-      const p = part.trim();
-      const m = /^([a-z0-9_-]+)\s*:\s*(.*)$/i.exec(p);
-      if (m && !/^(max-snippet|max-image-preview|max-video-preview|unavailable_after)$/i.test(m[1]!)) {
-        agent = m[1]!.toLowerCase();
-        if (m[2]) buckets.set(agent, [...(buckets.get(agent) ?? []), m[2].toLowerCase()]);
-      } else if (p) buckets.set(agent, [...(buckets.get(agent) ?? []), p.toLowerCase()]);
-    }
-    for (const [a, d] of buckets) out.push({ source: `X-Robots-Tag${a === '*' ? '' : ` (${a})`}`, directives: d });
-  }
-  return out;
 }
 
 export function checkIndexing(ctx: CheckContext): CheckResult {
@@ -188,3 +161,5 @@ export function checkIndexing(ctx: CheckContext): CheckResult {
   }
   return result(spec, 'pass', found.length ? 'Robots directives allow indexing and snippets.' : 'No noindex or nosnippet directives.');
 }
+
+export { botVerdicts, directivesFor };

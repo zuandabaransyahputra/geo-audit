@@ -1,7 +1,13 @@
-import { firstMeta } from '../html';
+import { firstMeta, type PageModel } from '../html';
 import { ENTITY_TYPES, nameOf, textValue } from '../jsonld';
 import type { CheckResult } from '../types';
 import { escapeHtml, pct, plural, result, truncate, type CheckContext, type Spec } from './shared';
+
+/** The same test checkServerText fails on: an app shell, or almost no text in the initial HTML. */
+export function serverTextFails(page: PageModel): boolean {
+  const { wordCount, appShell, noscriptSaysEnableJs } = page;
+  return appShell || (noscriptSaysEnableJs && wordCount < 150) || wordCount < 50;
+}
 
 export function checkServerText(ctx: CheckContext): CheckResult {
   const spec: Spec = {

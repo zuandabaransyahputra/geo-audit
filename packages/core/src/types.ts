@@ -63,7 +63,17 @@ export interface Report {
     isAstro: boolean;
   };
   insights: Insights;
+  /**
+   * `Content-Signal:` lines from robots.txt (contentsignals.org). Reported, never scored. `global` merges
+   * the lines that apply to every crawler (`User-agent: *` groups and lines before any group).
+   */
+  contentSignals: ContentSignals | null;
   toolVersion: string;
+}
+
+export interface ContentSignals {
+  global: Record<string, string> | null;
+  lines: { agents: string[]; signals: Record<string, string>; line: number }[];
 }
 
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'F';

@@ -4,6 +4,7 @@ import { FetchError, HTML_TYPES, safeFetch, TEXT_TYPES, XML_TYPES, type SafeFetc
 import { parsePage } from './html';
 import { buildInsights, LEARN_MORE } from './insights';
 import { CATEGORIES, categoryScore, gradeFor, overallScore } from './score';
+import { globalContentSignals } from './robots';
 import { normalizeInputUrl } from './ssrf';
 import type { AuditInputs, AuxFetch, CategoryResult, Fetched, Report } from './types';
 
@@ -44,6 +45,7 @@ export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}):
     categories,
     page: { status: inputs.page.status, redirects: inputs.page.redirects, title: page.title, isAstro: page.isAstro },
     insights: buildInsights(ctx, ctx.url.hostname, categories),
+    contentSignals: ctx.robots?.contentSignals.length ? { global: globalContentSignals(ctx.robots), lines: ctx.robots.contentSignals } : null,
     toolVersion: VERSION,
   };
 }
