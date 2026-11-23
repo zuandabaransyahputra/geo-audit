@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { reportHref } from '@/lib/site';
 import { CheckItem } from './check-item';
 import { CopyButton } from './copy-button';
-import { HireCta } from './hire-cta';
+import { HireCta, hireVariant } from './hire-cta';
 import { ActionPlanPanel, StrengthsPanel, VisibilityPanel } from './insight-panels';
 import { LinkIcon } from './icons';
 import { ScoreRing, scoreTone } from './score-ring';
@@ -25,6 +25,7 @@ function formatDate(iso: string) {
 
 export function ReportView({ report, markdown }: { report: Report; markdown: string }) {
   const tone = scoreTone(report.score);
+  const hire = hireVariant(report);
   const optOutHref = report.options.trainingOptOut ? undefined : reportHref(report.url, { trainingOptOut: true });
   // Footer counts cover scored categories only; Agent readiness has its own "x of y passed".
   const scoredChecks = report.categories.filter(isScored).flatMap((c) => c.checks);
@@ -127,7 +128,7 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
       <ActionPlanPanel plan={report.insights.plan} />
       <StrengthsPanel items={report.insights.strengths} />
 
-      <HireCta />
+      {hire !== 'clean' && <HireCta variant={hire} />}
 
       {report.categories.map((c) => (
         <section key={c.id} id={c.id} className="scroll-mt-20" aria-labelledby={`${c.id}-title`}>
@@ -160,6 +161,8 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
           </div>
         </section>
       ))}
+
+      {hire === 'clean' && <HireCta variant="clean" />}
 
       <p className="text-center text-xs text-muted-foreground">
         Results are cached for 10 minutes. GEO Audit v{report.toolVersion} checks the page as an AI crawler sees it: initial HTML, no JavaScript.
