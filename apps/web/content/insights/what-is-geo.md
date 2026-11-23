@@ -53,7 +53,7 @@ It helps to be clear about the limits.
 
 - It is not a guarantee. AI products change their retrieval and citation behaviour often, and most do not publish how they choose sources.
 - It is not keyword stuffing for chatbots. Hidden text, prompt-like instructions aimed at models, or pages written only for machines are as likely to backfire as the old SEO equivalents.
-- It is not a new file format that fixes everything. Proposals such as [llms.txt](/insights/llms-txt) are cheap to add and may help some tools, but they do not replace crawlable, well-structured pages.
+- It is not a new file format that fixes everything. [llms.txt](/insights/llms-txt) is optional: it can help agents and developer tools that read it, Google Search ignores it, and it does not replace crawlable, well-structured pages.
 - It is not separate from your users. Almost every change that helps an AI system read your page also helps a human skim it.
 
 ## Where to start

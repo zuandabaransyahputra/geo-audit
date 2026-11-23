@@ -20,12 +20,19 @@ Documented tokens as of late 2026. Vendors add and rename bots, so check the sou
 - `Googlebot` (Google): Google Search, including AI Overviews and AI Mode.
 - `Bingbot` (Microsoft): Bing search, whose web results Microsoft Copilot also uses.
 - `Applebot` (Apple): Spotlight, Siri and Safari.
+- `DuckAssistBot` (DuckDuckGo): fetches pages for AI-assisted answers in DuckDuckGo Search, which cite their sources; not used to train AI models.
+- `Amzn-SearchBot` (Amazon): search experiences in Amazon products such as Alexa; not used for generative AI training.
+- `MistralAI-Index` (Mistral): indexes pages for Mistral search, which helps answer questions in Vibe; not used for training.
+- `meta-webindexer` (Meta): improves Meta AI search results; allowing it "helps us cite and link to your content in Meta AI's responses".
 
 **User-triggered fetchers**
 
 - `ChatGPT-User` (OpenAI): user actions in ChatGPT and Custom GPTs; "robots.txt rules may not apply".
 - `Claude-User` (Anthropic): fetches pages when users ask Claude questions.
 - `Perplexity-User` (Perplexity): user actions; "generally ignores robots.txt rules".
+- `MistralAI-User` (Mistral): visits a page when a Vibe user asks a question, and links the source in the answer.
+- `meta-externalfetcher` (Meta): fetches links at a user's request and "may bypass robots.txt rules".
+- `Google-Agent` (Google): agents on Google infrastructure acting for a user. Google says its user-triggered fetchers "generally ignore robots.txt rules", so GEO Audit lists it but never scores it.
 
 **Training**
 
@@ -34,10 +41,12 @@ Documented tokens as of late 2026. Vendors add and rename bots, so check the sou
 - `Google-Extended` (Google): a product token, not a separate crawler, covering training future Gemini models and grounding in Gemini Apps and Vertex AI.
 - `Applebot-Extended` (Apple): use of content for training Apple's foundation models.
 - `CCBot` (Common Crawl): an open crawl archive, widely used for research and model training.
+- `Amazonbot` (Amazon): improves Amazon products and services, which may include training Amazon AI models.
+- `meta-externalagent` (Meta): use cases such as training foundation AI models or indexing content.
 
-Sources: [OpenAI](https://developers.openai.com/api/docs/bots), [Anthropic](https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler), [Perplexity](https://docs.perplexity.ai/guides/bots), [Google](https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers), [Apple](https://support.apple.com/en-us/119829), [Common Crawl](https://commoncrawl.org/ccbot).
+Sources: [OpenAI](https://developers.openai.com/api/docs/bots), [Anthropic](https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler), [Perplexity](https://docs.perplexity.ai/guides/bots), [Google crawlers](https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers), [Google user-triggered fetchers](https://developers.google.com/crawling/docs/crawlers-fetchers/google-user-triggered-fetchers), [Apple](https://support.apple.com/en-us/119829), [DuckDuckGo](https://duckduckgo.com/duckduckgo-help-pages/results/duckassistbot), [Amazon](https://developer.amazon.com/amazonbot), [Mistral](https://docs.mistral.ai/robots), [Meta](https://developers.facebook.com/docs/sharing/webmasters/web-crawlers/), [Common Crawl](https://commoncrawl.org/ccbot).
 
-Other crawlers associated with model training include Bytespider (ByteDance) and meta-externalagent (Meta). Their documentation is less detailed; treat them as training bots.
+Bytespider (ByteDance) is also widely blocked as a training crawler, but ByteDance publishes no crawler documentation we could verify.
 
 Note that Google-Extended "does not impact a site's inclusion in Google Search nor is it used as a ranking signal", so blocking it does not remove you from AI Overviews, which are part of Search. Likewise, pages that disallow Applebot-Extended can still appear in Apple's search results.
 
@@ -74,6 +83,11 @@ User-agent: Claude-SearchBot
 User-agent: Claude-User
 User-agent: PerplexityBot
 User-agent: Applebot
+User-agent: DuckAssistBot
+User-agent: Amzn-SearchBot
+User-agent: MistralAI-Index
+User-agent: MistralAI-User
+User-agent: meta-webindexer
 Disallow: /admin/
 
 # Training: blocked
@@ -82,6 +96,7 @@ User-agent: ClaudeBot
 User-agent: Google-Extended
 User-agent: Applebot-Extended
 User-agent: CCBot
+User-agent: Amazonbot
 User-agent: Bytespider
 User-agent: meta-externalagent
 Disallow: /
@@ -94,6 +109,22 @@ Sitemap: https://example.com/sitemap.xml
 ```
 
 robots.txt is a request, not access control. Well-behaved crawlers follow it; it does nothing against those that do not.
+
+If you block training on purpose, GEO Audit can take that into account: open the report with `?training=optout` (or run the CLI with `--training-optout`) and the blocked training crawlers stop counting against the score.
+
+## Content signals
+
+Cloudflare's [managed robots.txt](https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/) adds a `Content-Signal` line that says how content may be used once it is fetched, separately from whether it may be fetched:
+
+```txt
+User-Agent: *
+Content-signal: search=yes, ai-train=no, use=reference
+Allow: /
+```
+
+The signals are `search` (building a search index and showing results), `ai-input` (using content as input for AI answers, such as grounding) and `ai-train` (training or fine-tuning models), each `yes` or `no`. A signal that is left out neither grants nor restricts anything. Cloudflare also lists a `use` field that is still being tested.
+
+Content signals are a statement of preference, not a crawl rule: the `Allow` and `Disallow` lines still decide what crawlers fetch. GEO Audit shows any content signals it finds on the robots.txt check without scoring them. One exception: `ai-train=no` for all crawlers is read as a deliberate training opt-out.
 
 ## noindex, nosnippet and X-Robots-Tag
 
@@ -122,4 +153,4 @@ Google's [AI features documentation](https://developers.google.com/search/docs/a
 
 **Bot protection and firewalls.** CDN bot-management features, WAF rules and rate limits often challenge or block unfamiliar user agents, regardless of what robots.txt says. If your logs show AI crawlers receiving `403` or challenge pages, allowlist the bots you want in your CDN settings. Several vendors publish IP ranges for verifying genuine traffic.
 
-GEO Audit evaluates your robots.txt for each of these bots using the RFC 9309 rules above. It cannot see firewall rules that only trigger for real crawler traffic, so check your CDN logs as well. For the rest of the picture, see [what GEO is](/insights/what-is-geo) and the [GEO checklist](/insights/geo-checklist).
+GEO Audit evaluates your robots.txt for each of these bots using the RFC 9309 rules above. It also sends up to four probe requests that robots.txt allows, as OAI-SearchBot, PerplexityBot and GPTBot. Each probe uses the vendor's documented user agent with `GEO-Audit-probe` added, and the tool compares the answers with a normal request. A `403`, a `429`, a `5xx`, a Cloudflare challenge (`cf-mitigated: challenge`) or a much shorter page for the crawler points at a bot rule. Treat the result as a hint: real crawlers are also verified by IP address, which a test request cannot imitate, so confirm it in your CDN logs. For the rest of the picture, see [what GEO is](/insights/what-is-geo) and the [GEO checklist](/insights/geo-checklist).

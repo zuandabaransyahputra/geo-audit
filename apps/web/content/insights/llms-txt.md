@@ -12,7 +12,11 @@ It is not a replacement for robots.txt or a sitemap:
 
 ## Be realistic about what it does
 
-Whether and how individual AI products read llms.txt is not consistently documented. Some developer tools and documentation platforms generate or consume it; the major AI search vendors have not, as of late 2026, published clear statements that they use it for ranking or citation. Treat it as useful, low-cost context that may help some tools, not as a lever that changes how often you are cited.
+Google has now said where it stands. Its [AI optimization guide](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide) in Google Search Central (the llms.txt note was added on 15 June 2026) says that creating llms.txt files for other services is fine, but that it "will neither harm nor help your site's visibility or rankings in Google Search, as Google Search ignores them."
+
+Chrome's tooling looks at it from the other side. Since Lighthouse 13.3, the default Lighthouse report includes an [Agentic Browsing](https://developer.chrome.com/docs/lighthouse/agentic-browsing/scoring) category, and one of its audits is [llms.txt](https://developer.chrome.com/docs/lighthouse/agentic-browsing/llms-txt). That category is about agents that browse and act on pages, not about search rankings.
+
+So treat llms.txt as an optional extra for agents and developer tools that read it, not as a lever that changes how often you are cited in search.
 
 What it reliably does is force you to write a clear one-paragraph description of your site and choose your most important pages. That exercise is worth doing anyway.
 
@@ -98,4 +102,4 @@ Text in llms.txt that contradicts or exaggerates your pages, or instructions add
 
 If robots.txt blocks a crawler, it will not fetch llms.txt either. Get access right first.
 
-GEO Audit checks whether llms.txt exists, is served as text and follows the structure above, and whether llms-full.txt is present. For the other machine-readable layer, structured data in your pages, see [JSON-LD for AI answers](/insights/json-ld-for-ai).
+GEO Audit reports llms.txt and llms-full.txt under Agent readiness, which is not part of the score. A missing file is shown as information with a starting point built from your navigation and sitemap. A file that is present passes when it meets the same rules as the Lighthouse audit: an H1, at least one Markdown link and at least 50 characters. Deviations from the structure above are shown as notes. For the other machine-readable layer, structured data in your pages, see [JSON-LD for AI answers](/insights/json-ld-for-ai).

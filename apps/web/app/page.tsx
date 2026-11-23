@@ -8,7 +8,7 @@ const CATEGORIES = [
     name: 'AI access',
     weight: 30,
     blurb: 'Can the crawlers behind ChatGPT, Claude, Perplexity and Google AI Overviews fetch and quote the page?',
-    checks: ['robots.txt rules for 16 AI and search crawlers', 'noindex, nosnippet and noai directives', 'llms.txt and llms-full.txt'],
+    checks: ['robots.txt rules for 23 AI and search crawlers, scored per AI product', 'Firewall and CDN probes as AI crawlers', 'noindex, nosnippet and noai directives'],
   },
   {
     name: 'AI-readable content',
@@ -27,6 +27,12 @@ const CATEGORIES = [
     weight: 25,
     blurb: 'AI search is built on classic search indexes, so the basics still count.',
     checks: ['Status, HTTPS, redirects', 'Title, description, canonical, viewport', 'Open Graph, X card, sitemap'],
+  },
+  {
+    name: 'Agent readiness',
+    weight: null,
+    blurb: 'Optional extras for AI agents and developer tools. Reported as "x of y passed", not scored.',
+    checks: ['llms.txt (the rules Lighthouse checks) and llms-full.txt', 'Names on buttons, links and form fields', 'Declarative WebMCP tools on forms'],
   },
 ];
 
@@ -67,7 +73,7 @@ export default function Home() {
           </h1>
           <p className="mt-5 max-w-2xl text-pretty text-base text-muted-foreground sm:text-lg">
             Enter a URL and get a GEO score with concrete fixes for ChatGPT, Claude, Perplexity and Google AI Overviews: crawler access,
-            llms.txt, structured data, server-rendered content and SEO basics.
+            firewall blocks, server-rendered content, structured data and SEO basics.
           </p>
           <div className="mt-8 flex w-full justify-center">
             <UrlForm />
@@ -91,8 +97,8 @@ export default function Home() {
         <div className="mb-8 max-w-2xl">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">What it checks</h2>
           <p className="mt-2 text-muted-foreground">
-            27 checks in four weighted categories. Every failed check comes with why it matters and a fix you can paste, filled in with
-            your site&apos;s own values.
+            26 checks in four weighted categories, plus 4 agent readiness checks that are reported but not scored. Every failed check
+            comes with why it matters and a fix you can paste, filled in with your site&apos;s own values.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -100,7 +106,7 @@ export default function Home() {
             <div key={c.name} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-baseline justify-between gap-4">
                 <h3 className="font-semibold">{c.name}</h3>
-                <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">{c.weight}%</span>
+                <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">{c.weight === null ? 'not scored' : `${c.weight}%`}</span>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{c.blurb}</p>
               <ul className="mt-4 space-y-1.5 text-sm">
@@ -139,7 +145,9 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-6 text-sm text-muted-foreground md:grid-cols-3">
           <div>
             <h3 className="mb-1 font-medium text-foreground">How scoring works</h3>
-            Each check earns 0–100% of its weight; categories are weighted 30 / 25 / 20 / 25 into one score. A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 55.
+            Each check earns 0–100% of its weight; categories are weighted 30 / 25 / 20 / 25 into one score. If major AI products are
+            blocked, the score is capped: 89 for one, 79 for two, 69 for three or four, 54 for five or six. An app shell with no text
+            in the HTML is capped at 69. A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 55.
           </div>
           <div>
             <h3 className="mb-1 font-medium text-foreground">Privacy</h3>
