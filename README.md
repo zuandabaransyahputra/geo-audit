@@ -173,8 +173,10 @@ pnpm build        # builds the CLI and the web app
 node packages/cli/dist/index.js example.com
 ```
 
-**Vercel:** import the repo and set the project's Root Directory to `apps/web` (framework: Next.js, Node runtime). No
-environment variables are needed. If you deploy under a different domain, change `SITE_URL` in
+**Vercel:** import the repo and set the project's Root Directory to `apps/web` (framework: Next.js, Node runtime). One
+optional environment variable: `OG_SECRET` (any long random string) signs the scores in share-image URLs, so
+link previews on Slack, WhatsApp or LinkedIn show the score card instantly without re-running the audit; without it
+they show a generic card. If you deploy under a different domain, change `SITE_URL` in
 [`packages/core/src/constants.ts`](packages/core/src/constants.ts); it is used for metadata, share links and the
 crawler's User-Agent.
 

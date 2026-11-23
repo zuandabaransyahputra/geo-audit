@@ -7,6 +7,7 @@ import { ReportError, ReportSkeleton } from '@/components/report-states';
 import { UrlForm } from '@/components/url-form';
 import { clientIp, getReport, parseTarget } from '@/lib/run-audit';
 import { reportHref } from '@/lib/site';
+import { cardQuery } from '@/lib/og-card';
 
 type Props = { searchParams: Promise<{ [key: string]: string | string[] | undefined }> };
 
@@ -19,9 +20,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const target = parseTarget(input);
   if (!target.ok) return { title: 'Report', robots: { index: false } };
   const host = target.url.hostname;
-  const title = `GEO report for ${host}`;
+  // Shares the page render's audit (same cache and in-flight request), so this adds no extra fetch.
+  const outcome = await getReport(target.url.href, clientIp(await headers()));
+  const title = outcome.ok ? `GEO report for ${host}: ${outcome.report.score}/100 (grade ${outcome.report.grade})` : `GEO report for ${host}`;
   const description = `How well can ChatGPT, Claude, Perplexity and Google AI Overviews find, read and cite ${host}? Score, category breakdown and fixes.`;
-  const og = `/api/og?url=${encodeURIComponent(target.url.href)}`;
+  const og = outcome.ok ? `/api/og?${cardQuery(outcome.report)}` : `/api/og?d=${encodeURIComponent(host.replace(/^www\./, ''))}`;
   return {
     title,
     description,
