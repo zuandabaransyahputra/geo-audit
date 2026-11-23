@@ -1,3 +1,4 @@
+import type { ProductStatus } from './products';
 import type { CategoryId, CategoryResult, CheckResult, Grade } from './types';
 
 export const CATEGORIES: { id: CategoryId; label: string; description: string; weight: number }[] = [
@@ -48,4 +49,71 @@ export function topFixes(categories: CategoryResult[], limit = 5): (CheckResult 
     .filter((c) => c.impact > 0)
     .sort((a, b) => b.impact - a.impact)
     .slice(0, limit);
+}
+
+/* ------------------------------------------------------------------------------------------------ */
+/* Score cap                                                                                        */
+/* ------------------------------------------------------------------------------------------------ */
+
+export interface ScoreCap {
+  /** Highest overall score the page can get while these reasons hold. */
+  limit: number;
+  /** Plain-language causes, e.g. "ChatGPT search and Claude are blocked by robots.txt". */
+  reasons: string[];
+}
+
+/** Cap by number of major AI products that are blocked outright. */
+export function capForBlocked(n: number): number | null {
+  if (n <= 0) return null;
+  if (n === 1) return 89;
+  if (n === 2) return 79;
+  if (n <= 4) return 69;
+  return 54;
+}
+
+/** Cap when the content only appears after JavaScript runs (an app shell). */
+export const APP_SHELL_CAP = 69;
+
+/** What the cap needs to know: the shared product statuses and whether the page is an app shell. */
+export interface CapInput {
+  products: Pick<ProductStatus, 'product' | 'kind' | 'tier' | 'blockedBy' | 'blockedHow'>[];
+  appShell: boolean;
+}
+
+/**
+ * The lowest cap that applies, or null. `fixed` simulates check fixes (for the action plan): a product
+ * stays blocked while any check that blocks it is unfixed.
+ */
+export function scoreCap(input: CapInput, fixed: ReadonlySet<string> = new Set()): ScoreCap | null {
+  const blocked = input.products.filter((p) => p.kind === 'answers' && p.tier === 'major' && p.blockedBy.some((id) => !fixed.has(id)));
+  const limits: number[] = [];
+  const reasons: string[] = [];
+  const byBlocked = capForBlocked(blocked.length);
+  if (byBlocked !== null) {
+    limits.push(byBlocked);
+    const groups = new Map<string, string[]>();
+    for (const p of blocked) {
+      const how = p.blockedHow ?? 'blocked';
+      groups.set(how, [...(groups.get(how) ?? []), p.product]);
+    }
+    for (const [how, names] of groups) reasons.push(`${joinList(names)} ${names.length === 1 ? 'is' : 'are'} ${how}`);
+  }
+  if (input.appShell && !fixed.has('server-rendered-text')) {
+    limits.push(APP_SHELL_CAP);
+    reasons.push('the content only appears after JavaScript runs');
+  }
+  if (!limits.length) return null;
+  return { limit: Math.min(...limits), reasons };
+}
+
+/** `Capped at 69: ChatGPT search and Claude are blocked by robots.txt. Without the cap: 81.` */
+export function capMessage(cap: ScoreCap, rawScore: number): string {
+  const text = cap.reasons.join('; ');
+  return `Capped at ${cap.limit}: ${/^[a-z-]+\.txt\b/.test(text) ? text : text.charAt(0).toUpperCase() + text.slice(1)}. Without the cap: ${rawScore}.`;
+}
+
+function joinList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }

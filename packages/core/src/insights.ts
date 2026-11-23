@@ -5,7 +5,7 @@
  */
 import type { CheckContext } from './checks';
 import { capitalise, list, PRODUCTS, productStatuses, type ProductStatus, type Visibility } from './products';
-import { categoryScore, impact, overallScore } from './score';
+import { categoryScore, impact, overallScore, scoreCap, type CapInput, type ScoreCap } from './score';
 import type { CategoryResult, CheckResult } from './types';
 
 /* ------------------------------------------------------------------------------------------------ */
@@ -132,16 +132,20 @@ export interface ActionPlan {
   afterAll: number;
 }
 
-function scoreIf(categories: CategoryResult[], fixed: Set<string>): number {
-  return overallScore(
+/** Overall score if the `fixed` checks passed, with the cap re-evaluated after those fixes. */
+function scoreIf(categories: CategoryResult[], fixed: ReadonlySet<string>, cap?: CapInput): number {
+  const raw = overallScore(
     categories.map((c) => ({
       weight: c.weight,
       score: categoryScore(c.checks.map((x) => (fixed.has(x.id) ? { ...x, score: 1 } : x))),
     })),
   );
+  const limit = cap ? scoreCap(cap, fixed)?.limit : undefined;
+  return limit === undefined ? raw : Math.min(raw, limit);
 }
 
-export function actionPlan(categories: CategoryResult[]): ActionPlan {
+export function actionPlan(categories: CategoryResult[], cap?: CapInput): ActionPlan {
+  const current = scoreIf(categories, new Set(), cap);
   const items: ActionItem[] = categories
     .flatMap((c) => c.checks)
     .filter((c) => (c.status === 'fail' || c.status === 'warn') && c.weight > 0)
@@ -153,7 +157,8 @@ export function actionPlan(categories: CategoryResult[]): ActionPlan {
         summary: c.summary,
         status: c.status,
         category: c.category,
-        points: Math.round(impact(c, categories) * 10) / 10,
+        // Raw points, or more when the fix also lifts the cap (unblocking a major product).
+        points: Math.round(Math.max(impact(c, categories), scoreIf(categories, new Set([c.id]), cap) - current) * 10) / 10,
         effort,
         effortLabel: EFFORT_LABEL[effort],
         learnMore: LEARN_MORE[c.id],
@@ -164,14 +169,13 @@ export function actionPlan(categories: CategoryResult[]): ActionPlan {
     .sort((a, b) => b.points / EFFORT_COST[b.effort] - a.points / EFFORT_COST[a.effort] || b.points - a.points);
 
   const quickWins = items.filter((i) => i.effort === 'minutes');
-  const current = overallScore(categories);
   return {
     quickWins,
     thisWeek: items.filter((i) => i.effort === 'hours'),
     bigger: items.filter((i) => i.effort === 'project'),
     current,
-    afterQuickWins: Math.max(current, scoreIf(categories, new Set(quickWins.map((i) => i.id)))),
-    afterAll: Math.max(current, scoreIf(categories, new Set(items.map((i) => i.id)))),
+    afterQuickWins: Math.max(current, scoreIf(categories, new Set(quickWins.map((i) => i.id)), cap)),
+    afterAll: Math.max(current, scoreIf(categories, new Set(items.map((i) => i.id)), cap)),
   };
 }
 
@@ -257,8 +261,16 @@ const SHORT: Record<string, string> = {
   apple: 'Siri',
 };
 
-export function summary(input: { domain: string; score: number; categories: CategoryResult[]; visibility: ProductVisibility[]; plan: ActionPlan }): string {
-  const { domain, score, categories, visibility: vis, plan } = input;
+export function summary(input: {
+  domain: string;
+  score: number;
+  categories: CategoryResult[];
+  visibility: ProductVisibility[];
+  plan: ActionPlan;
+  cap?: ScoreCap | null;
+  rawScore?: number;
+}): string {
+  const { domain, score, categories, visibility: vis, plan, cap } = input;
   const out: string[] = [];
 
   const answers = vis.filter((v) => v.kind === 'answers' && SHORT[v.id]);
@@ -267,7 +279,13 @@ export function summary(input: { domain: string; score: number; categories: Cate
   const blocked = answers.filter((v) => v.answers === 'blocked');
   const shutOut = blocked.length >= 2;
 
-  if (score >= 90) {
+  const raw = input.rawScore ?? score;
+  if (cap && raw >= 70) {
+    // The page is fine; access is what holds the score down.
+    out.push(
+      `${domain} scores ${score}/100: the page itself is in ${raw >= 90 ? 'very good' : 'decent'} shape, but ${shutOut ? 'several AI assistants are kept out' : 'not every AI assistant is let in'}.`,
+    );
+  } else if (score >= 90) {
     out.push(
       blocked.length
         ? `${domain} scores ${score}/100: the page itself is in very good shape, but not every AI assistant is let in.`
@@ -281,6 +299,10 @@ export function summary(input: { domain: string; score: number; categories: Cate
     );
   } else if (score >= 55) out.push(`${domain} scores ${score}/100: there are significant gaps that make AI assistants likely to skip or misread it.`);
   else out.push(`${domain} scores ${score}/100: right now most AI assistants will struggle to find or understand it.`);
+
+  if (cap) {
+    out.push(`The score is capped at ${cap.limit} because ${cap.reasons.join(', and ')}; without the cap it would be ${input.rawScore ?? score}.`);
+  }
 
   if (!partly.length && !blocked.length) {
     out.push(`${list(answers.map((v) => SHORT[v.id]!))} can all reach and read the page.`);
@@ -324,11 +346,16 @@ export interface Insights {
   strengths: string[];
 }
 
-export function buildInsights(ctx: CheckContext, domain: string, categories: CategoryResult[]): Insights {
+export function buildInsights(
+  ctx: CheckContext,
+  domain: string,
+  categories: CategoryResult[],
+  scoring?: { score: number; rawScore: number; cap: ScoreCap | null; capInput: CapInput },
+): Insights {
   const vis = visibility(ctx);
-  const plan = actionPlan(categories);
+  const plan = actionPlan(categories, scoring?.capInput);
   return {
-    summary: summary({ domain, score: overallScore(categories), categories, visibility: vis, plan }),
+    summary: summary({ domain, score: scoring?.score ?? overallScore(categories), categories, visibility: vis, plan, cap: scoring?.cap ?? null, rawScore: scoring?.rawScore }),
     visibility: vis,
     plan,
     strengths: strengths(categories),

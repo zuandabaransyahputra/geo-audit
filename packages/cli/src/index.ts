@@ -3,6 +3,7 @@ import {
   articleUrl,
   audit,
   BlockedUrlError,
+  capMessage,
   FetchError,
   HIRE_URL,
   reportUrl,
@@ -26,7 +27,7 @@ Options
   --json             Print the full report as JSON
   --markdown, --md   Print the report as Markdown
   --all              Show details and fixes for passing checks too
-  --min-score <n>    Exit with code 1 when the score is below n (for CI)
+  --min-score <n>    Exit with code 1 when the score (after any cap) is below n (for CI)
   --no-color         Disable colours (NO_COLOR is respected too)
   -h, --help         Show this help
   -v, --version      Show the version
@@ -190,6 +191,7 @@ function render(r: Report, o: RunOptions, c: Palette): string {
   out.push(c.dim(`${r.finalUrl}  ·  HTTP ${r.page.status}${redirects}  ·  ${(r.durationMs / 1000).toFixed(1)} s`));
   out.push('');
   out.push(`  Score  ${sc(c.bold(`${r.score}/100`))}  grade ${sc(c.bold(r.grade))}`);
+  if (r.cap) out.push(wrap(c.yellow(capMessage(r.cap, r.rawScore)), 90, '  '));
   out.push('');
   const labelWidth = Math.max(...r.categories.map((x) => x.label.length));
   for (const cat of r.categories) {

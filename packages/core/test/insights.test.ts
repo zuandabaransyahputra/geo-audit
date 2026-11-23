@@ -91,8 +91,11 @@ describe('summary', () => {
 describe('summary edge cases', () => {
   it('does not call a site with assistants shut out "usable by most assistants"', () => {
     const r = analyze(inputs({ robots: robots('User-agent: OAI-SearchBot\nUser-agent: Claude-SearchBot\nUser-agent: PerplexityBot\nDisallow: /\n\nUser-agent: *\nAllow: /\nSitemap: https://acme.dev/sitemap.xml') }));
-    expect(r.score).toBeGreaterThanOrEqual(70);
-    expect(r.insights.summary).toMatch(/(not every AI assistant is let in|several AI assistants are kept out)/);
+    // Three major products blocked: capped at 69 even though the page itself scores higher.
+    expect(r.score).toBe(69);
+    expect(r.rawScore).toBeGreaterThanOrEqual(70);
+    expect(r.insights.summary).toMatch(/several AI assistants are kept out/);
+    expect(r.insights.summary).toMatch(/capped at 69 because ChatGPT search, Claude and Perplexity are blocked by robots\.txt; without the cap it would be \d+\./);
     expect(r.insights.summary).not.toMatch(/can use most of it|well prepared/);
   });
 

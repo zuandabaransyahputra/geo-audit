@@ -150,7 +150,7 @@ export interface ProductStatus {
   crawlers: CrawlerState[];
   /** Ids of checks whose fix would lift a `blocked` answers status. Empty unless blocked. */
   blockedBy: string[];
-  /** What blocks it, in a few words, for the score cap ("blocked by robots.txt"). */
+  /** What blocks it, as a predicate for the score cap: "blocked by robots.txt", "blocked by noindex" ... */
   blockedHow?: string;
   docs: string;
 }
@@ -273,7 +273,7 @@ export function productStatuses(ctx: CheckContext): ProductStatus[] {
       if (robotsDown) reasons.push('robots.txt could not be fetched, so careful crawlers stay away');
       else reasons.push(`robots.txt blocks ${main.length && training.length ? `${list(main)}, and ${trainingText}` : main.length ? list(main) : trainingText}`);
     }
-    const how = robotsDown ? 'robots.txt could not be fetched' : 'blocked by robots.txt';
+    const how = robotsDown ? 'out of reach because robots.txt could not be fetched' : 'blocked by robots.txt';
     for (const c of blocked) {
       if (!p.primary.length) {
         // A group of equal crawlers: all blocked = blocked, some = partly.
@@ -284,7 +284,7 @@ export function productStatuses(ctx: CheckContext): ProductStatus[] {
       } else block('partly', undefined, undefined, { answersToo: !c.training, robots: true });
     }
     if (gone) {
-      block('blocked', 'http-status', `the page returns HTTP ${status}`);
+      block('blocked', 'http-status', `out of reach because the page returns HTTP ${status}`);
       reasons.push(`the page returns HTTP ${status}`);
     } else if (errorStatus) {
       block('partly');

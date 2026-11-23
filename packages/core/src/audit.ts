@@ -3,7 +3,8 @@ import { VERSION } from './constants';
 import { FetchError, HTML_TYPES, safeFetch, TEXT_TYPES, XML_TYPES, type SafeFetchOptions } from './fetch';
 import { parsePage } from './html';
 import { buildInsights, LEARN_MORE } from './insights';
-import { CATEGORIES, categoryScore, gradeFor, overallScore } from './score';
+import { productStatuses } from './products';
+import { CATEGORIES, categoryScore, gradeFor, overallScore, scoreCap, type CapInput } from './score';
 import { globalContentSignals } from './robots';
 import { normalizeInputUrl } from './ssrf';
 import type { AuditInputs, AuxFetch, CategoryResult, Fetched, Report } from './types';
@@ -22,6 +23,11 @@ async function aux(fetcher: NonNullable<AuditOptions['fetcher']>, url: string, o
   }
 }
 
+function capInputFor(ctx: ReturnType<typeof buildContext>, categories: CategoryResult[]): CapInput {
+  const shell = categories.flatMap((c) => c.checks).find((c) => c.id === 'server-rendered-text');
+  return { products: productStatuses(ctx), appShell: shell?.status === 'fail' };
+}
+
 /** Run every check on already-fetched inputs. Pure: no network. */
 export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}): Report {
   const page = parsePage(inputs.page.body);
@@ -33,7 +39,11 @@ export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}):
     });
     return { ...c, checks, score: categoryScore(checks) };
   });
-  const score = overallScore(categories);
+  const rawScore = overallScore(categories);
+  const capInput = capInputFor(ctx, categories);
+  const found = scoreCap(capInput);
+  const cap = found && found.limit < rawScore ? found : null;
+  const score = cap ? cap.limit : rawScore;
   return {
     url: inputs.page.url,
     finalUrl: inputs.page.finalUrl,
@@ -41,10 +51,12 @@ export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}):
     fetchedAt: new Date().toISOString(),
     durationMs: meta.startedAt ? Date.now() - meta.startedAt : 0,
     score,
+    rawScore,
+    cap,
     grade: gradeFor(score),
     categories,
     page: { status: inputs.page.status, redirects: inputs.page.redirects, title: page.title, isAstro: page.isAstro },
-    insights: buildInsights(ctx, ctx.url.hostname, categories),
+    insights: buildInsights(ctx, ctx.url.hostname, categories, { score, rawScore, cap, capInput }),
     contentSignals: ctx.robots?.contentSignals.length ? { global: globalContentSignals(ctx.robots), lines: ctx.robots.contentSignals } : null,
     toolVersion: VERSION,
   };

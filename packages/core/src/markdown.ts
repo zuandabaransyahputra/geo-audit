@@ -1,5 +1,6 @@
 import { HIRE_URL, SITE_URL } from './constants';
 import type { ActionItem } from './insights';
+import { capMessage } from './score';
 import type { Report, Status } from './types';
 
 const ICON: Record<Status, string> = { pass: '✅', warn: '⚠️', fail: '❌', info: 'ℹ️' };
@@ -26,6 +27,10 @@ export function toMarkdown(report: Report): string {
   out.push('');
   out.push(`**Score: ${report.score}/100 (grade ${report.grade})** · ${report.finalUrl} · ${report.fetchedAt.slice(0, 10)}`);
   out.push('');
+  if (report.cap) {
+    out.push(`**${capMessage(report.cap, report.rawScore)}**`);
+    out.push('');
+  }
   out.push('| Category | Score | Weight |');
   out.push('| --- | ---: | ---: |');
   for (const c of report.categories) out.push(`| ${c.label} | ${c.score} | ${Math.round(c.weight * 100)}% |`);

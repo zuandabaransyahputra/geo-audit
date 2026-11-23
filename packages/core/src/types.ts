@@ -1,4 +1,5 @@
 import type { Insights } from './insights';
+import type { ScoreCap } from './score';
 
 export type Status = 'pass' | 'warn' | 'fail' | 'info';
 
@@ -52,8 +53,12 @@ export interface Report {
   domain: string;
   fetchedAt: string;
   durationMs: number;
-  /** 0..100 */
+  /** 0..100, after the cap. The grade and `--min-score` use this. */
   score: number;
+  /** 0..100, the weighted category average before any cap. */
+  rawScore: number;
+  /** Set when a cap lowered the score (major AI products blocked, or an app shell). */
+  cap: ScoreCap | null;
   grade: Grade;
   categories: CategoryResult[];
   page: {

@@ -1,4 +1,4 @@
-import { impact, type Report } from '@geo-audit/core';
+import { capMessage, impact, type Report } from '@geo-audit/core';
 import { CheckItem } from './check-item';
 import { CopyButton } from './copy-button';
 import { HireCta } from './hire-cta';
@@ -31,6 +31,7 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
     <div className="space-y-8">
       <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:gap-10">
+          <div>
           <div className="flex items-center gap-5">
             <ScoreRing score={report.score} grade={report.grade} />
             <div className="min-w-0">
@@ -43,6 +44,12 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
               <h1 className="mt-2 break-all text-xl font-semibold tracking-tight sm:text-2xl">{report.domain}</h1>
               <p className="mt-1 max-w-xs text-sm text-muted-foreground">{VERDICT[report.grade]}</p>
             </div>
+          </div>
+          {report.cap && (
+            <p className="mt-4 max-w-sm rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn" role="note">
+              {capMessage(report.cap, report.rawScore)}
+            </p>
+          )}
           </div>
           <div className="flex-1 space-y-3">
             {report.categories.map((c) => {
