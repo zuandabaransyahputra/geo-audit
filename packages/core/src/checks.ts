@@ -32,7 +32,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 /* AI access                                                                                        */
 /* ------------------------------------------------------------------------------------------------ */
 
-function botVerdicts(ctx: CheckContext, bots: Bot[]) {
+export function botVerdicts(ctx: CheckContext, bots: Bot[]) {
   const path = ctx.url.pathname + ctx.url.search;
   return bots.map((bot) => {
     if (ctx.robotsState === 'server-error' || ctx.robotsState === 'error') {
@@ -155,7 +155,7 @@ function checkRobotsTxt(ctx: CheckContext): CheckResult {
   }
 }
 
-function directivesFor(ctx: CheckContext): { source: string; directives: string[] }[] {
+export function directivesFor(ctx: CheckContext): { source: string; directives: string[] }[] {
   const out: { source: string; directives: string[] }[] = [];
   const split = (s: string) => s.toLowerCase().split(/\s*,\s*/).map((d) => d.trim()).filter(Boolean);
   const names = ['robots', 'googlebot', 'bingbot', ...AI_BOTS.map((b) => b.token.toLowerCase())];

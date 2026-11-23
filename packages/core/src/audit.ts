@@ -2,6 +2,7 @@ import { buildContext, CHECKS } from './checks';
 import { VERSION } from './constants';
 import { FetchError, HTML_TYPES, safeFetch, TEXT_TYPES, XML_TYPES, type SafeFetchOptions } from './fetch';
 import { parsePage } from './html';
+import { buildInsights, LEARN_MORE } from './insights';
 import { CATEGORIES, categoryScore, gradeFor, overallScore } from './score';
 import { normalizeInputUrl } from './ssrf';
 import type { AuditInputs, AuxFetch, CategoryResult, Fetched, Report } from './types';
@@ -25,7 +26,10 @@ export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}):
   const page = parsePage(inputs.page.body);
   const ctx = buildContext(inputs, page);
   const categories: CategoryResult[] = CATEGORIES.map((c) => {
-    const checks = CHECKS[c.id].map((fn) => fn(ctx));
+    const checks = CHECKS[c.id].map((fn) => {
+      const r = fn(ctx);
+      return LEARN_MORE[r.id] ? { ...r, learnMore: LEARN_MORE[r.id] } : r;
+    });
     return { ...c, checks, score: categoryScore(checks) };
   });
   const score = overallScore(categories);
@@ -39,6 +43,7 @@ export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}):
     grade: gradeFor(score),
     categories,
     page: { status: inputs.page.status, redirects: inputs.page.redirects, title: page.title, isAstro: page.isAstro },
+    insights: buildInsights(ctx, ctx.url.hostname, categories),
     toolVersion: VERSION,
   };
 }

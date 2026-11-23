@@ -1,8 +1,19 @@
 import { HIRE_URL, SITE_URL } from './constants';
-import { topFixes } from './score';
+import type { ActionItem } from './insights';
 import type { Report, Status } from './types';
 
 const ICON: Record<Status, string> = { pass: '✅', warn: '⚠️', fail: '❌', info: 'ℹ️' };
+
+const VIS = { visible: '🟢 Visible', partly: '🟡 Partly', blocked: '🔴 Blocked' } as const;
+
+export function articleUrl(slug: string): string {
+  return `${SITE_URL}/insights/${slug}`;
+}
+
+/** Points as shown to people: whole numbers, "<1" for tiny gains. */
+export function points(n: number): string {
+  return n < 1 ? '<1' : String(Math.round(n));
+}
 
 export function reportUrl(url: string): string {
   return `${SITE_URL}/report?url=${encodeURIComponent(url)}`;
@@ -20,11 +31,45 @@ export function toMarkdown(report: Report): string {
   for (const c of report.categories) out.push(`| ${c.label} | ${c.score} | ${Math.round(c.weight * 100)}% |`);
   out.push('');
 
-  const fixes = topFixes(report.categories, 5);
-  if (fixes.length) {
-    out.push('## Top fixes');
+  const ins = report.insights;
+  out.push(`> ${ins.summary}`);
+  out.push('');
+
+  out.push('## Who can see you');
+  out.push('');
+  out.push('| AI product | Status | Why |');
+  out.push('| --- | --- | --- |');
+  for (const v of ins.visibility) out.push(`| ${v.product} | ${VIS[v.status]} | ${v.reason.replace(/\|/g, '/')} |`);
+  out.push('');
+
+  const plan = ins.plan;
+  const groups: [string, ActionItem[]][] = [
+    ['Quick wins (minutes)', plan.quickWins],
+    ['This week (hours)', plan.thisWeek],
+    ['Bigger projects (days)', plan.bigger],
+  ];
+  if (groups.some(([, items]) => items.length)) {
+    out.push('## Action plan');
     out.push('');
-    fixes.forEach((f, i) => out.push(`${i + 1}. **${f.title}**: ${f.summary} (+${Math.max(1, Math.round(f.impact))} pts)`));
+    out.push(
+      `Projected score: ${plan.current} now${plan.quickWins.length ? `, about ${plan.afterQuickWins} after the quick wins` : ''}, about ${plan.afterAll} after the full plan. Points and effort are estimates.`,
+    );
+    out.push('');
+    for (const [label, items] of groups) {
+      if (!items.length) continue;
+      out.push(`### ${label}`);
+      out.push('');
+      items.forEach((f, i) =>
+        out.push(`${i + 1}. **${f.title}**: ${f.summary} (+${points(f.points)} pts, ${f.effortLabel})${f.learnMore ? ` [Learn more](${articleUrl(f.learnMore)})` : ''}`),
+      );
+      out.push('');
+    }
+  }
+
+  if (ins.strengths.length) {
+    out.push('## Strengths');
+    out.push('');
+    for (const s of ins.strengths) out.push(`- ${s}`);
     out.push('');
   }
 
@@ -36,7 +81,7 @@ export function toMarkdown(report: Report): string {
       out.push('');
       out.push(check.summary);
       out.push('');
-      out.push(`*Why it matters:* ${check.why}`);
+      out.push(`*Why it matters:* ${check.why}${check.learnMore ? ` [Learn more](${articleUrl(check.learnMore)})` : ''}`);
       if (check.details?.length && check.status !== 'pass') {
         out.push('');
         for (const d of check.details) out.push(`- ${d}`);

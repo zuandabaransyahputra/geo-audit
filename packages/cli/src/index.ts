@@ -1,16 +1,19 @@
 import { parseArgs } from 'node:util';
 import {
+  articleUrl,
   audit,
   BlockedUrlError,
   FetchError,
   HIRE_URL,
   reportUrl,
+  points,
   toMarkdown,
-  topFixes,
   VERSION,
+  type ActionItem,
   type CheckResult,
   type Report,
   type Status,
+  type Visibility,
 } from '@geo-audit/core';
 
 const HELP = `
@@ -131,6 +134,23 @@ function icon(c: Palette, s: Status): string {
   return s === 'pass' ? c.green('✓') : s === 'warn' ? c.yellow('!') : s === 'fail' ? c.red('✗') : c.blue('i');
 }
 
+function visIcon(c: Palette, v: Visibility): string {
+  return v === 'visible' ? c.green('● visible') : v === 'partly' ? c.yellow('◐ partly ') : c.red('○ blocked');
+}
+
+function wrap(text: string, width: number, pad: string): string {
+  const lines: string[] = [];
+  let line = '';
+  for (const word of text.split(/\s+/)) {
+    if (line && line.length + word.length + 1 > width) {
+      lines.push(pad + line);
+      line = word;
+    } else line = line ? `${line} ${word}` : word;
+  }
+  if (line) lines.push(pad + line);
+  return lines.join('\n');
+}
+
 function indent(text: string, pad: string): string {
   return text
     .split('\n')
@@ -176,16 +196,46 @@ function render(r: Report, o: RunOptions, c: Palette): string {
     const col = scoreColor(c, cat.score);
     out.push(`  ${cat.label.padEnd(labelWidth)}  ${col(bar(cat.score))}  ${col(String(cat.score).padStart(3))}  ${c.gray(`${Math.round(cat.weight * 100)}%`)}`);
   }
+  const ins = r.insights;
+  out.push('');
+  out.push(wrap(ins.summary, 90, '  '));
+
+  out.push('');
+  out.push(c.bold('Who can see you'));
+  const pw = Math.max(...ins.visibility.map((v) => v.product.length));
+  for (const v of ins.visibility) {
+    out.push(`  ${visIcon(c, v.status)} ${v.product.padEnd(pw)}  ${c.gray(v.reason)}`);
+  }
+
   for (const cat of r.categories) {
     out.push('');
     out.push(`${c.bold(cat.label)} ${c.gray(`${cat.score}/100`)}`);
     for (const check of cat.checks) out.push(renderCheck(check, o, c));
   }
-  const fixes = topFixes(r.categories, 5);
-  if (fixes.length) {
+
+  const plan = ins.plan;
+  const groups: [string, ActionItem[]][] = [
+    ['Quick wins (minutes)', plan.quickWins],
+    ['This week (hours)', plan.thisWeek],
+    ['Bigger projects (days)', plan.bigger],
+  ];
+  if (groups.some(([, items]) => items.length)) {
     out.push('');
-    out.push(c.bold('Top fixes'));
-    fixes.forEach((f, i) => out.push(`  ${i + 1}. ${f.title} ${c.gray(`(+${Math.max(1, Math.round(f.impact))} pts)`)}`));
+    out.push(c.bold('Action plan') + c.gray('  (points and effort are estimates)'));
+    for (const [label, items] of groups) {
+      if (!items.length) continue;
+      out.push(`  ${c.cyan(label)}`);
+      for (const f of items) out.push(`    · ${f.title} ${c.green(`+${points(f.points)}`)} ${c.gray(`· ${f.effortLabel}${f.learnMore ? ` · ${articleUrl(f.learnMore)}` : ''}`)}`);
+    }
+    const proj = [`now ${plan.current}`];
+    if (plan.quickWins.length) proj.push(`after quick wins ~${plan.afterQuickWins}`);
+    proj.push(`after full plan ~${plan.afterAll}`);
+    out.push(`  Projected score: ${proj.join(' → ')}`);
+  }
+  if (ins.strengths.length) {
+    out.push('');
+    out.push(c.bold('Strengths'));
+    for (const s of ins.strengths) out.push(`  ${c.green('+')} ${s}`);
   }
   out.push('');
   out.push(`Shareable report: ${c.cyan(reportUrl(r.url))}`);

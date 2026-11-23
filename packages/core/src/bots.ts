@@ -10,13 +10,14 @@ export interface Bot {
 
 /**
  * Crawlers that decide whether AI assistants can find and cite a page. `search` and `user` agents fetch
- * pages to answer questions and link to them; `training` agents collect data for models. Googlebot and
- * Bingbot are included because Google AI Overviews use the normal Google index and ChatGPT search leans
- * on Bing's.
+ * pages to answer questions and link to them; `training` agents collect data for models. Googlebot,
+ * Bingbot and Applebot are included because Google AI Overviews, Microsoft Copilot and Apple's Siri answers
+ * are built on those search crawlers.
  */
 export const AI_BOTS: Bot[] = [
   { token: 'Googlebot', owner: 'Google', purpose: 'search', role: 'Google Search and AI Overviews' },
-  { token: 'Bingbot', owner: 'Microsoft', purpose: 'search', role: 'Bing, Copilot and the index behind ChatGPT search' },
+  { token: 'Bingbot', owner: 'Microsoft', purpose: 'search', role: 'Bing search and Microsoft Copilot' },
+  { token: 'Applebot', owner: 'Apple', purpose: 'search', role: 'Siri, Spotlight and Safari suggestions' },
   { token: 'OAI-SearchBot', owner: 'OpenAI', purpose: 'search', role: 'ChatGPT search results' },
   { token: 'ChatGPT-User', owner: 'OpenAI', purpose: 'user', role: 'pages ChatGPT opens for a user' },
   { token: 'Claude-SearchBot', owner: 'Anthropic', purpose: 'search', role: 'Claude search results' },

@@ -1,7 +1,8 @@
-import { impact, topFixes, type Report } from '@geo-audit/core';
+import { impact, type Report } from '@geo-audit/core';
 import { CheckItem } from './check-item';
 import { CopyButton } from './copy-button';
 import { HireCta } from './hire-cta';
+import { ActionPlanPanel, StrengthsPanel, VisibilityPanel } from './insight-panels';
 import { LinkIcon } from './icons';
 import { ScoreRing, scoreTone } from './score-ring';
 
@@ -21,7 +22,6 @@ function formatDate(iso: string) {
 }
 
 export function ReportView({ report, markdown }: { report: Report; markdown: string }) {
-  const fixes = topFixes(report.categories, 5);
   const tone = scoreTone(report.score);
   const counts = report.categories
     .flatMap((c) => c.checks)
@@ -63,7 +63,8 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
             })}
           </div>
         </div>
-        <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <p className="mt-6 max-w-3xl text-pretty text-[15px] leading-relaxed">{report.insights.summary}</p>
+        <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p className="break-all">
             <a href={report.finalUrl} className="hover:text-foreground" rel="nofollow noopener">
               {report.finalUrl}
@@ -82,27 +83,9 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
         </div>
       </section>
 
-      {fixes.length > 0 && (
-        <section aria-labelledby="top-fixes">
-          <h2 id="top-fixes" className="mb-3 text-lg font-semibold tracking-tight">
-            Top fixes
-          </h2>
-          <ol className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-            {fixes.map((f, i) => (
-              <li key={f.id} className="border-b border-border last:border-b-0">
-                <a href={`#${f.id}`} className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50 sm:px-5">
-                  <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-xs">{i + 1}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="font-medium">{f.title}</span>
-                    <span className="block truncate text-sm text-muted-foreground">{f.summary.replace(/`/g, '')}</span>
-                  </span>
-                  <span className="shrink-0 font-mono text-xs text-pass">+{Math.max(1, Math.round(f.impact))} pts</span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
+      <VisibilityPanel items={report.insights.visibility} />
+      <ActionPlanPanel plan={report.insights.plan} />
+      <StrengthsPanel items={report.insights.strengths} />
 
       <HireCta />
 

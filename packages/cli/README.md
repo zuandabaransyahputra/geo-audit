@@ -6,7 +6,7 @@ How well can ChatGPT, Claude, Perplexity and Google AI Overviews find, read and 
 npx ai-geo-audit example.com
 ```
 
-Checks robots.txt rules for 15 AI and search crawlers, noindex/nosnippet, llms.txt and llms-full.txt, JSON-LD, server-rendered
+Checks robots.txt rules for 16 AI and search crawlers, noindex/nosnippet, llms.txt and llms-full.txt, JSON-LD, server-rendered
 content, headings, alt text, dates, authorship and SEO basics.
 
 | Option | Description |

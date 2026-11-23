@@ -1,3 +1,5 @@
+import type { Insights } from './insights';
+
 export type Status = 'pass' | 'warn' | 'fail' | 'info';
 
 export type CategoryId = 'ai-access' | 'content' | 'structured-data' | 'seo';
@@ -27,6 +29,8 @@ export interface CheckResult {
   /** Extra findings (bot names, invalid blocks ...). */
   details?: string[];
   fix?: Fix;
+  /** Slug of the article that explains this check (`/insights/<slug>`). */
+  learnMore?: string;
 }
 
 export interface CategoryResult {
@@ -58,6 +62,7 @@ export interface Report {
     title?: string;
     isAstro: boolean;
   };
+  insights: Insights;
   toolVersion: string;
 }
 
