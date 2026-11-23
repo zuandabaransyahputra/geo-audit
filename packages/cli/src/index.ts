@@ -3,6 +3,7 @@ import {
   articleUrl,
   audit,
   BlockedUrlError,
+  capMessage,
   FetchError,
   HIRE_URL,
   reportUrl,
@@ -26,7 +27,8 @@ Options
   --json             Print the full report as JSON
   --markdown, --md   Print the report as Markdown
   --all              Show details and fixes for passing checks too
-  --min-score <n>    Exit with code 1 when the score is below n (for CI)
+  --min-score <n>    Exit with code 1 when the score (after any cap) is below n (for CI)
+  --training-optout  You block AI training crawlers on purpose; do not count it against the score
   --no-color         Disable colours (NO_COLOR is respected too)
   -h, --help         Show this help
   -v, --version      Show the version
@@ -47,6 +49,7 @@ function main(): Promise<number> {
         md: { type: 'boolean' },
         all: { type: 'boolean' },
         'min-score': { type: 'string' },
+        'training-optout': { type: 'boolean' },
         'no-color': { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
@@ -71,7 +74,7 @@ function main(): Promise<number> {
     return Promise.resolve(2);
   }
   const color = !values['no-color'] && !process.env.NO_COLOR && Boolean(process.stdout.isTTY);
-  return run(positionals[0], { json: values.json, markdown: values.markdown || values.md, all: values.all, color, minScore });
+  return run(positionals[0], { json: values.json, markdown: values.markdown || values.md, all: values.all, color, minScore, trainingOptOut: values['training-optout'] });
 }
 
 interface RunOptions {
@@ -80,6 +83,7 @@ interface RunOptions {
   all?: boolean;
   color: boolean;
   minScore?: number;
+  trainingOptOut?: boolean;
 }
 
 async function run(url: string, o: RunOptions): Promise<number> {
@@ -88,7 +92,7 @@ async function run(url: string, o: RunOptions): Promise<number> {
   if (interactive) process.stderr.write(c.dim(`Auditing ${url} ...\n`));
   let report: Report;
   try {
-    report = await audit(url);
+    report = await audit(url, { trainingOptOut: o.trainingOptOut });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const kind = err instanceof BlockedUrlError ? 'Not allowed' : err instanceof FetchError ? 'Could not fetch the page' : 'Error';
@@ -135,7 +139,8 @@ function icon(c: Palette, s: Status): string {
 }
 
 function visIcon(c: Palette, v: Visibility): string {
-  return v === 'visible' ? c.green('● visible') : v === 'partly' ? c.yellow('◐ partly ') : c.red('○ blocked');
+  if (v === 'opted-out') return c.gray('◌ opted out');
+  return v === 'visible' ? c.green('● visible  ') : v === 'partly' ? c.yellow('◐ partly   ') : c.red('○ blocked  ');
 }
 
 function wrap(text: string, width: number, pad: string): string {
@@ -164,14 +169,16 @@ function plain(s: string): string {
 }
 
 function renderCheck(check: CheckResult, o: RunOptions, c: Palette): string {
-  const lines = [`  ${icon(c, check.status)} ${c.bold(check.title)}`, `    ${plain(check.summary)}`];
+  const withNotes = check.status === 'pass' && Boolean(check.notes?.length);
+  const lines = [`  ${icon(c, check.status)} ${c.bold(check.title)}${withNotes ? c.gray(' · notes') : ''}`, `    ${plain(check.summary)}`];
+  for (const n of check.notes ?? []) lines.push(c.gray(`      note: ${plain(n)}`));
   const expand = o.all || check.status === 'fail' || check.status === 'warn';
   if (!expand) return lines.join('\n');
   if (check.details?.length && (check.status !== 'pass' || o.all)) {
     const shown = check.details.filter((d) => o.all || !/^allowed\s/.test(d));
     for (const d of shown.slice(0, 12)) lines.push(c.gray(`      · ${d}`));
   }
-  if (check.status !== 'pass' && check.status !== 'info') {
+  if (check.status !== 'pass' && (check.status !== 'info' || check.fix)) {
     lines.push(c.dim(`    Why: ${check.why}`));
     if (check.fix) {
       lines.push(`    ${c.cyan('Fix:')} ${plain(check.fix.text)}`);
@@ -190,9 +197,15 @@ function render(r: Report, o: RunOptions, c: Palette): string {
   out.push(c.dim(`${r.finalUrl}  ·  HTTP ${r.page.status}${redirects}  ·  ${(r.durationMs / 1000).toFixed(1)} s`));
   out.push('');
   out.push(`  Score  ${sc(c.bold(`${r.score}/100`))}  grade ${sc(c.bold(r.grade))}`);
+  if (r.cap) out.push(wrap(c.yellow(capMessage(r.cap, r.rawScore)), 90, '  '));
+  if (r.options.trainingOptOut) out.push(c.gray(`  Training crawlers: blocked on purpose${r.options.trainingOptOutSource === 'content-signal' ? ' (Content-Signal ai-train=no)' : ''}, not counted.`));
   out.push('');
   const labelWidth = Math.max(...r.categories.map((x) => x.label.length));
   for (const cat of r.categories) {
+    if (cat.tally) {
+      out.push(`  ${cat.label.padEnd(labelWidth)}  ${c.gray(`${cat.tally.passed} of ${cat.tally.total} passed · not scored`)}`);
+      continue;
+    }
     const col = scoreColor(c, cat.score);
     out.push(`  ${cat.label.padEnd(labelWidth)}  ${col(bar(cat.score))}  ${col(String(cat.score).padStart(3))}  ${c.gray(`${Math.round(cat.weight * 100)}%`)}`);
   }
@@ -209,7 +222,7 @@ function render(r: Report, o: RunOptions, c: Palette): string {
 
   for (const cat of r.categories) {
     out.push('');
-    out.push(`${c.bold(cat.label)} ${c.gray(`${cat.score}/100`)}`);
+    out.push(`${c.bold(cat.label)} ${c.gray(cat.tally ? `${cat.tally.passed} of ${cat.tally.total} passed, not scored` : `${cat.score}/100`)}`);
     for (const check of cat.checks) out.push(renderCheck(check, o, c));
   }
 
@@ -218,6 +231,7 @@ function render(r: Report, o: RunOptions, c: Palette): string {
     ['Quick wins (minutes)', plan.quickWins],
     ['This week (hours)', plan.thisWeek],
     ['Bigger projects (days)', plan.bigger],
+    ['Optional: agent readiness (not scored)', plan.optional],
   ];
   if (groups.some(([, items]) => items.length)) {
     out.push('');
@@ -225,7 +239,10 @@ function render(r: Report, o: RunOptions, c: Palette): string {
     for (const [label, items] of groups) {
       if (!items.length) continue;
       out.push(`  ${c.cyan(label)}`);
-      for (const f of items) out.push(`    · ${f.title} ${c.green(`+${points(f.points)}`)} ${c.gray(`· ${f.effortLabel}${f.learnMore ? ` · ${articleUrl(f.learnMore)}` : ''}`)}`);
+      for (const f of items) {
+        const gain = f.category === 'agent-readiness' ? c.gray('optional') : f.afterCap ? c.gray(`+${points(f.points)} after the cap`) : c.green(`+${points(f.points)}`);
+        out.push(`    · ${f.title} ${gain} ${c.gray(`· ${f.effortLabel}${f.note ? ` · ${f.note.toLowerCase()}` : ''}${f.learnMore ? ` · ${articleUrl(f.learnMore)}` : ''}`)}`);
+      }
     }
     const proj = [`now ${plan.current}`];
     if (plan.quickWins.length) proj.push(`after quick wins ~${plan.afterQuickWins}`);
@@ -238,7 +255,7 @@ function render(r: Report, o: RunOptions, c: Palette): string {
     for (const s of ins.strengths) out.push(`  ${c.green('+')} ${s}`);
   }
   out.push('');
-  out.push(`Shareable report: ${c.cyan(reportUrl(r.url))}`);
+  out.push(`Shareable report: ${c.cyan(reportUrl(r.url, { trainingOptOut: r.options.trainingOptOutSource === 'request' }))}`);
   out.push(c.dim(`Built by Zuanda Baransyah Putra. Need help fixing these? ${HIRE_URL}`));
   out.push('');
   return out.join('\n');

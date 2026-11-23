@@ -69,10 +69,24 @@ export function parseTarget(input: string | undefined | null): { ok: true; url: 
   }
 }
 
-export async function getReport(input: string, ip: string): Promise<AuditOutcome> {
+export interface ReportOptions {
+  trainingOptOut?: boolean;
+}
+
+/** Cache key: the URL plus every option that changes the result. */
+function cacheKey(href: string, opts: ReportOptions): string {
+  return opts.trainingOptOut ? `${href}|training=optout` : href;
+}
+
+/** `?training=optout` -> { trainingOptOut: true }. */
+export function parseOptions(params: { get(name: string): string | null }): ReportOptions {
+  return params.get('training') === 'optout' ? { trainingOptOut: true } : {};
+}
+
+export async function getReport(input: string, ip: string, opts: ReportOptions = {}): Promise<AuditOutcome> {
   const target = parseTarget(input);
   if (!target.ok) return { ok: false, kind: 'invalid', message: target.message };
-  const key = target.url.href;
+  const key = cacheKey(target.url.href, opts);
 
   const cached = fromCache(key);
   if (cached) return { ok: true, report: cached.report, markdown: cached.markdown, cached: true };
@@ -83,11 +97,12 @@ export async function getReport(input: string, ip: string): Promise<AuditOutcome
     if (wait) {
       return { ok: false, kind: 'rate-limit', message: `Too many audits from your network. Try again in ${wait} s.`, retryAfter: wait };
     }
-    job = audit(key).then((report) => {
+    job = audit(target.url.href, { trainingOptOut: Boolean(opts.trainingOptOut) }).then((report) => {
       const entry = { at: Date.now(), report, markdown: toMarkdown(report) };
       store(key, entry);
       // Also cache under the final URL so shared links to it are instant.
-      if (report.finalUrl !== key) store(report.finalUrl, entry);
+      const finalKey = cacheKey(report.finalUrl, opts);
+      if (finalKey !== key) store(finalKey, entry);
       return entry;
     });
     inflight.set(key, job);
@@ -107,7 +122,7 @@ export async function getReport(input: string, ip: string): Promise<AuditOutcome
 }
 
 /** Cached report only; never triggers a fetch. */
-export function peekReport(input: string): Report | undefined {
+export function peekReport(input: string, opts: ReportOptions = {}): Report | undefined {
   const target = parseTarget(input);
-  return target.ok ? fromCache(target.url.href)?.report : undefined;
+  return target.ok ? fromCache(cacheKey(target.url.href, opts))?.report : undefined;
 }

@@ -9,7 +9,7 @@ const sans = Geist({ subsets: ['latin'], variable: '--font-geist-sans' });
 const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' });
 
 const description =
-  'Free GEO audit: check if ChatGPT, Claude, Perplexity and Google AI Overviews can find, read and cite your site. Get a score and copy-paste fixes for robots.txt, llms.txt, JSON-LD and SEO basics.';
+  'Free GEO audit: check if ChatGPT, Claude, Perplexity and Google AI Overviews can find, read and cite your site. Get a score and copy-paste fixes for robots.txt, firewall rules, JSON-LD and SEO basics.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

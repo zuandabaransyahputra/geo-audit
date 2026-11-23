@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agentToken, isAllowed, matchPattern, normalizeForMatch, parseRobots } from '../src/robots';
+import { agentToken, contentSignalsFor, globalContentSignals, isAllowed, matchPattern, normalizeForMatch, parseContentSignal, parseRobots } from '../src/robots';
 
 const allowed = (txt: string, bot: string, path: string) => isAllowed(parseRobots(txt), bot, path).allowed;
 
@@ -192,5 +192,32 @@ describe('percent-encoding', () => {
 
   it('adds a leading slash to patterns that lack one', () => {
     expect(allowed('User-agent: *\nDisallow: private', 'x', '/private/a')).toBe(false);
+  });
+});
+
+describe('Content-Signal', () => {
+  it('parses values per group and globally, without changing grouping', async () => {
+    const { CLOUDFLARE_MANAGED } = await import('./robots-fixtures');
+    const r = parseRobots(CLOUDFLARE_MANAGED);
+    expect(r.invalidLines).toEqual([]);
+    expect(r.contentSignals).toHaveLength(1);
+    expect(r.contentSignals[0]).toMatchObject({ agents: ['*'], signals: { search: 'yes', 'ai-train': 'no', use: 'reference' } });
+    expect(globalContentSignals(r)).toEqual({ search: 'yes', 'ai-train': 'no', use: 'reference' });
+    // The `Allow: /` after Content-signal still belongs to the `*` group.
+    expect(isAllowed(r, 'Googlebot', '/').allowed).toBe(true);
+    expect(isAllowed(r, 'GPTBot', '/').allowed).toBe(false);
+    expect(contentSignalsFor(r, 'GPTBot')).toEqual({ search: 'yes', 'ai-train': 'no', use: 'reference' });
+  });
+
+  it('keeps bot-specific signals separate and lets later keys win', () => {
+    const r = parseRobots('Content-Signal: ai-input=yes\n\nUser-agent: *\nContent-Signal: search=yes, ai-train=no\nContent-Signal: ai-train=yes\nDisallow: /private\n\nUser-agent: Bot\nContent-Signal: ai-input=no, use=none\nAllow: /');
+    expect(globalContentSignals(r)).toEqual({ 'ai-input': 'yes', search: 'yes', 'ai-train': 'yes' });
+    expect(contentSignalsFor(r, 'bot')).toEqual({ 'ai-input': 'no', use: 'none' });
+    expect(r.groups[1]!.contentSignals).toEqual({ 'ai-input': 'no', use: 'none' });
+    expect(isAllowed(r, 'Other', '/private/x').allowed).toBe(false);
+  });
+
+  it('ignores malformed parts', () => {
+    expect(parseContentSignal('search=yes, junk, =no, ai-train = no')).toEqual({ search: 'yes', 'ai-train': 'no' });
   });
 });

@@ -28,6 +28,8 @@ export interface SafeFetchOptions {
   truncate?: boolean;
   /** Accept header to send. */
   acceptHeader?: string;
+  /** User-Agent to send instead of the default GEO-Audit one (firewall probes). Header only. */
+  userAgent?: string;
   /** Test hook: replace DNS resolution. */
   resolver?: (hostname: string) => Promise<{ address: string; family: number }[]>;
   /**
@@ -91,7 +93,7 @@ function flattenHeaders(h: http.IncomingHttpHeaders): Record<string, string> {
   return out;
 }
 
-function requestOnce(url: URL, opts: Required<Omit<SafeFetchOptions, 'resolver' | 'accept' | 'unsafeTestOverrides'>> & SafeFetchOptions, signal: AbortSignal): Promise<HopResult> {
+function requestOnce(url: URL, opts: Required<Omit<SafeFetchOptions, 'resolver' | 'accept' | 'unsafeTestOverrides' | 'userAgent'>> & SafeFetchOptions, signal: AbortSignal): Promise<HopResult> {
   return new Promise((resolve, reject) => {
     const lib = url.protocol === 'https:' ? https : http;
     const req = lib.request(
@@ -100,7 +102,7 @@ function requestOnce(url: URL, opts: Required<Omit<SafeFetchOptions, 'resolver' 
         method: 'GET',
         lookup: makeGuardedLookup(opts.resolver, opts.unsafeTestOverrides?.isAllowedAddress),
         headers: {
-          'user-agent': USER_AGENT,
+          'user-agent': opts.userAgent ?? USER_AGENT,
           accept: opts.acceptHeader,
           'accept-encoding': 'gzip, deflate, br',
           'accept-language': 'en;q=0.9, *;q=0.5',

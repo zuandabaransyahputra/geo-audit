@@ -20,18 +20,21 @@ export const ARTICLES: ArticleMeta[] = [
     title: 'What is GEO, and how is it different from SEO?',
     description: 'Generative engine optimisation explained: what changes when AI assistants answer instead of listing links, and what stays the same.',
     published: '2026-11-23',
+    updated: '2026-11-23',
   },
   {
     slug: 'ai-crawlers-robots-txt',
     title: 'AI crawlers in robots.txt: search bots vs training bots',
-    description: 'Which AI crawlers exist, what each one is for, and how to allow AI search while blocking model training in robots.txt.',
+    description: 'Which AI crawlers exist, what each one is for, content signals, firewall blocks, and how to allow AI search while blocking training.',
     published: '2026-11-23',
+    updated: '2026-11-23',
   },
   {
     slug: 'llms-txt',
     title: 'llms.txt and llms-full.txt: what they are and how to write them',
-    description: 'The llms.txt format, how llms-full.txt differs, how to write a useful one, and the mistakes that make it useless.',
+    description: 'The llms.txt format, how llms-full.txt differs, what Google and Lighthouse say about it, and the mistakes that make it useless.',
     published: '2026-11-23',
+    updated: '2026-11-23',
   },
   {
     slug: 'json-ld-for-ai',
@@ -72,8 +75,9 @@ export const ARTICLES: ArticleMeta[] = [
   {
     slug: 'geo-checklist',
     title: 'The GEO checklist: get found and cited by AI assistants',
-    description: 'A practical checklist for AI search: crawler access, llms.txt, server-rendered content, structured data, SEO basics and measurement.',
+    description: 'A practical checklist for AI search: crawler access, server-rendered content, structured data, SEO basics, measurement and optional agent extras.',
     published: '2026-11-23',
+    updated: '2026-11-23',
   },
 ];
 

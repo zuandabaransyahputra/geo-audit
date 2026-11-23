@@ -1,7 +1,9 @@
-import { impact, type Report } from '@geo-audit/core';
+import { capMessage, isScored, type Report } from '@geo-audit/core';
+import Link from 'next/link';
+import { reportHref } from '@/lib/site';
 import { CheckItem } from './check-item';
 import { CopyButton } from './copy-button';
-import { HireCta } from './hire-cta';
+import { HireCta, hireVariant } from './hire-cta';
 import { ActionPlanPanel, StrengthsPanel, VisibilityPanel } from './insight-panels';
 import { LinkIcon } from './icons';
 import { ScoreRing, scoreTone } from './score-ring';
@@ -23,14 +25,21 @@ function formatDate(iso: string) {
 
 export function ReportView({ report, markdown }: { report: Report; markdown: string }) {
   const tone = scoreTone(report.score);
-  const counts = report.categories
-    .flatMap((c) => c.checks)
-    .reduce((acc, c) => ({ ...acc, [c.status]: (acc[c.status] ?? 0) + 1 }), {} as Record<string, number>);
+  const hire = hireVariant(report);
+  // Same points as the action plan (they include lifting the score cap), so the two never disagree.
+  const plan = report.insights.plan;
+  const planPoints = new Map([...plan.quickWins, ...plan.thisWeek, ...plan.bigger].map((i) => [i.id, i]));
+  const optOutHref = report.options.trainingOptOut ? undefined : reportHref(report.url, { trainingOptOut: true });
+  // Footer counts cover scored categories only; Agent readiness has its own "x of y passed".
+  const scoredChecks = report.categories.filter(isScored).flatMap((c) => c.checks);
+  const counts = scoredChecks.reduce((acc, c) => ({ ...acc, [c.status]: (acc[c.status] ?? 0) + 1 }), {} as Record<string, number>);
+  const withNotes = scoredChecks.filter((c) => c.status === 'pass' && c.notes?.length).length;
 
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:gap-10">
+          <div>
           <div className="flex items-center gap-5">
             <ScoreRing score={report.score} grade={report.grade} />
             <div className="min-w-0">
@@ -44,8 +53,32 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
               <p className="mt-1 max-w-xs text-sm text-muted-foreground">{VERDICT[report.grade]}</p>
             </div>
           </div>
+          {report.cap && (
+            <p className="mt-4 max-w-sm rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn" role="note">
+              {capMessage(report.cap, report.rawScore)}
+            </p>
+          )}
+          </div>
           <div className="flex-1 space-y-3">
             {report.categories.map((c) => {
+              if (c.tally) {
+                return (
+                  <a key={c.id} href={`#${c.id}`} className="group block">
+                    <div className="mb-1 flex items-baseline justify-between text-sm">
+                      <span className="font-medium group-hover:underline group-hover:underline-offset-4">{c.label}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        <span className="text-sm font-semibold text-foreground">
+                          {c.tally.passed} of {c.tally.total}
+                        </span>{' '}
+                        passed · not scored
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-muted-foreground/40" style={{ width: `${c.tally.total ? Math.max(2, (c.tally.passed / c.tally.total) * 100) : 0}%` }} />
+                    </div>
+                  </a>
+                );
+              }
               const t = scoreTone(c.score);
               return (
                 <a key={c.id} href={`#${c.id}`} className="group block">
@@ -73,7 +106,7 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
             {report.page.redirects.length > 0 && ` · ${report.page.redirects.length} redirect${report.page.redirects.length > 1 ? 's' : ''}`} · <span className="whitespace-nowrap">{formatDate(report.fetchedAt)}</span>
             <span className="whitespace-nowrap">
               {' '}
-              · {counts.pass ?? 0} passed, {counts.warn ?? 0} warnings, {counts.fail ?? 0} failed
+              · {counts.pass ?? 0} passed{withNotes ? ` (${withNotes} with notes)` : ''}, {counts.warn ?? 0} warnings, {counts.fail ?? 0} failed
             </span>
           </p>
           <div className="flex shrink-0 gap-2">
@@ -83,11 +116,22 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
         </div>
       </section>
 
-      <VisibilityPanel items={report.insights.visibility} />
+      {report.options.trainingOptOut && (
+        <p className="-mb-4 text-sm text-muted-foreground">
+          Training crawlers are treated as blocked on purpose
+          {report.options.trainingOptOutSource === 'content-signal' ? ' (robots.txt: Content-Signal ai-train=no)' : ''}.{' '}
+          {report.options.trainingOptOutSource === 'request' && (
+            <Link href={reportHref(report.url)} className="text-primary underline-offset-4 hover:underline">
+              Count them again
+            </Link>
+          )}
+        </p>
+      )}
+      <VisibilityPanel items={report.insights.visibility} optOutHref={optOutHref} />
       <ActionPlanPanel plan={report.insights.plan} />
       <StrengthsPanel items={report.insights.strengths} />
 
-      <HireCta />
+      {hire !== 'clean' && <HireCta variant={hire} />}
 
       {report.categories.map((c) => (
         <section key={c.id} id={c.id} className="scroll-mt-20" aria-labelledby={`${c.id}-title`}>
@@ -98,18 +142,30 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
               </h2>
               <p className="text-sm text-muted-foreground">{c.description}</p>
             </div>
-            <p className="shrink-0 text-right font-mono text-xs text-muted-foreground">
-              <span className={`text-lg font-semibold ${TEXT[scoreTone(c.score)]}`}>{c.score}</span>/100
-              <span className="block">weight {Math.round(c.weight * 100)}%</span>
-            </p>
+            {c.tally ? (
+              <p className="shrink-0 text-right font-mono text-xs text-muted-foreground">
+                <span className="text-lg font-semibold text-foreground">
+                  {c.tally.passed} of {c.tally.total}
+                </span>{' '}
+                passed
+                <span className="block">not scored</span>
+              </p>
+            ) : (
+              <p className="shrink-0 text-right font-mono text-xs text-muted-foreground">
+                <span className={`text-lg font-semibold ${TEXT[scoreTone(c.score)]}`}>{c.score}</span>/100
+                <span className="block">weight {Math.round(c.weight * 100)}%</span>
+              </p>
+            )}
           </div>
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             {c.checks.map((check) => (
-              <CheckItem key={check.id} check={check} impact={check.status === 'pass' || check.status === 'info' ? undefined : impact(check, report.categories)} />
+              <CheckItem key={check.id} check={check} optOutHref={optOutHref} impact={planPoints.get(check.id)?.points} afterCap={planPoints.get(check.id)?.afterCap} />
             ))}
           </div>
         </section>
       ))}
+
+      {hire === 'clean' && <HireCta variant="clean" />}
 
       <p className="text-center text-xs text-muted-foreground">
         Results are cached for 10 minutes. GEO Audit v{report.toolVersion} checks the page as an AI crawler sees it: initial HTML, no JavaScript.

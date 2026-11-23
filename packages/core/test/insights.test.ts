@@ -91,8 +91,11 @@ describe('summary', () => {
 describe('summary edge cases', () => {
   it('does not call a site with assistants shut out "usable by most assistants"', () => {
     const r = analyze(inputs({ robots: robots('User-agent: OAI-SearchBot\nUser-agent: Claude-SearchBot\nUser-agent: PerplexityBot\nDisallow: /\n\nUser-agent: *\nAllow: /\nSitemap: https://acme.dev/sitemap.xml') }));
-    expect(r.score).toBeGreaterThanOrEqual(70);
-    expect(r.insights.summary).toMatch(/(not every AI assistant is let in|several AI assistants are kept out)/);
+    // Three major products blocked: capped at 69 even though the page itself scores higher.
+    expect(r.score).toBe(69);
+    expect(r.rawScore).toBeGreaterThanOrEqual(70);
+    expect(r.insights.summary).toMatch(/several AI assistants are kept out/);
+    expect(r.insights.summary).toMatch(/capped at 69 because ChatGPT search, Claude and Perplexity are blocked by robots\.txt; without the cap it would be \d+\./);
     expect(r.insights.summary).not.toMatch(/can use most of it|well prepared/);
   });
 
@@ -141,7 +144,7 @@ describe('visibility', () => {
   it('treats the "others" group as a set: some blocked = partly, all blocked = blocked', () => {
     const some = analyze(inputs({ robots: robots('User-agent: CCBot\nDisallow: /') }));
     expect(vis(some, 'others').status).toBe('partly');
-    const all = analyze(inputs({ robots: robots('User-agent: CCBot\nUser-agent: Bytespider\nUser-agent: meta-externalagent\nDisallow: /') }));
+    const all = analyze(inputs({ robots: robots('User-agent: CCBot\nUser-agent: Bytespider\nDisallow: /') }));
     expect(vis(all, 'others').status).toBe('blocked');
   });
 
@@ -233,7 +236,7 @@ describe('strengths and metadata', () => {
 
   it('has effort and an existing article for every scored check', () => {
     const ids = Object.values(CHECKS).flatMap((fns) => fns.map((fn) => fn.name));
-    expect(ids.length).toBe(27);
+    expect(ids.length).toBe(30);
     const r = good();
     for (const c of r.categories.flatMap((x) => x.checks)) {
       expect(LEARN_MORE[c.id], c.id).toBeDefined();

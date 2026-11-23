@@ -1,6 +1,6 @@
 {
   "name": "ai-geo-audit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Audit how well a website can be found, read and cited by AI search and assistants (ChatGPT, Claude, Perplexity, Google AI Overviews), plus SEO basics.",
   "keywords": ["geo", "generative engine optimization", "seo", "llms.txt", "robots.txt", "json-ld", "ai search", "audit", "cli", "chatgpt", "perplexity", "claude"],
   "author": {

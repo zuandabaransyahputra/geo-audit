@@ -118,3 +118,16 @@ export function validateLlmsTxt(text: string): LlmsValidation {
 
   return { valid: errors.length === 0, title, summary, sections, linkCount, errors, warnings, notes };
 }
+
+/**
+ * The checks Lighthouse's llms.txt audit (Agentic Browsing category) applies to a 200 response: an H1
+ * anywhere, at least one Markdown link, and at least 50 characters. Returns the problems, empty when it
+ * passes. Source: lighthouse core/audits/agentic/llms-txt.js.
+ */
+export function lighthouseLlmsProblems(text: string): string[] {
+  const problems: string[] = [];
+  if (!/^\s*#\s+.+/m.test(text)) problems.push('no H1 header (`# Name`)');
+  if (!/\[.+\]\(.+\)/.test(text)) problems.push('no Markdown links');
+  if (text.length < 50) problems.push('shorter than 50 characters');
+  return problems;
+}

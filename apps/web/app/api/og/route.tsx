@@ -65,7 +65,8 @@ function ScoreCard({ card }: { card: CardData }) {
             <div style={{ display: 'flex', padding: '6px 16px', borderRadius: 999, background: TINTS[t], color: COLORS[t], fontSize: 24, fontWeight: 700 }}>{`Grade ${card.grade}`}</div>
             <div style={{ display: 'flex', fontSize: 24, color: '#4b4f60' }}>{VERDICT[t]}</div>
           </div>
-          <div style={{ fontSize: domainSize, fontWeight: 800, letterSpacing: -1.5, display: 'flex', marginBottom: 6 }}>{card.domain}</div>
+          <div style={{ fontSize: domainSize, fontWeight: 800, letterSpacing: -1.5, display: 'flex', marginBottom: card.optOut ? 0 : 6 }}>{card.domain}</div>
+          {card.optOut && <div style={{ display: 'flex', fontSize: 20, color: '#6b6f80', marginBottom: 6 }}>Training crawlers opted out on purpose</div>}
           {card.categories.map((score, i) => (
             <div key={LABELS.at(i)} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 22 }}>

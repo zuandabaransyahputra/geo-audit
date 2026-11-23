@@ -9,12 +9,15 @@ const STYLE: Record<Status, string> = {
 };
 const LABEL: Record<Status, string> = { pass: 'Pass', warn: 'Warning', fail: 'Fail', info: 'Info' };
 
-export function StatusIcon({ status }: { status: Status }) {
+/** `notes`: a pass with caveats, shown in a neutral colour as "Pass · notes". */
+export function StatusIcon({ status, notes = false }: { status: Status; notes?: boolean }) {
   const Icon = status === 'pass' ? Check : status === 'warn' ? Alert : status === 'fail' ? X : Info;
+  const withNotes = notes && status === 'pass';
+  const label = withNotes ? 'Pass · notes' : LABEL[status];
   return (
-    <span className={`inline-flex size-6 shrink-0 items-center justify-center rounded-full ${STYLE[status]}`} title={LABEL[status]}>
+    <span className={`inline-flex size-6 shrink-0 items-center justify-center rounded-full ${withNotes ? 'bg-muted text-muted-foreground' : STYLE[status]}`} title={label}>
       <Icon className="size-3.5" strokeWidth={2.5} />
-      <span className="sr-only">{LABEL[status]}</span>
+      <span className="sr-only">{label}</span>
     </span>
   );
 }

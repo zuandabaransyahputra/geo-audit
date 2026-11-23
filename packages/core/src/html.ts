@@ -23,6 +23,12 @@ export interface PageModel {
   noscriptSaysEnableJs: boolean;
   scriptCount: number;
   hasViewport: boolean;
+  /** Visible buttons, links and form fields in the initial HTML, and short descriptions of unnamed ones. */
+  controls: { total: number; unnamed: string[] };
+  /** `<a href>` links in document order; `inNav` when inside `<nav>` or `<header>`. Text is capped at 80 chars. */
+  anchors: { href: string; text: string; inNav: boolean }[];
+  /** Forms, and declarative WebMCP tools (`<form toolname tooldescription>`). */
+  forms: { total: number; tools: string[]; partial: number };
 }
 
 const REMOVE = 'script, style, noscript, template, svg, iframe, object, canvas, head';
@@ -107,6 +113,10 @@ export function parsePage(html: string): PageModel {
     return { alt: alt === undefined ? null : alt, decorative: alt === '' || role === 'presentation' || role === 'none' || hidden };
   });
 
+  const controls = scanControls(root, body);
+  const anchors = collectAnchors(body);
+  const forms = scanForms(body);
+
   body.querySelectorAll(REMOVE).forEach((n) => n.remove());
   // Accessible name of a heading: aria-label wins (split-text animations hide the words with aria-hidden),
   // then visible text, then the alt text of images inside it.
@@ -146,7 +156,110 @@ export function parsePage(html: string): PageModel {
     noscriptSaysEnableJs,
     scriptCount,
     hasViewport,
+    controls,
+    anchors,
+    forms,
   };
+}
+
+function collectAnchors(body: HTMLElement): PageModel['anchors'] {
+  const out: PageModel['anchors'] = [];
+  for (const a of body.querySelectorAll('a[href]')) {
+    if (out.length >= 500) break;
+    const href = (a.getAttribute('href') ?? '').trim();
+    if (!href || href.startsWith('#') || /^(javascript|mailto|tel):/i.test(href)) continue;
+    let inNav = false;
+    for (let n = a.parentNode as HTMLElement | null; n && n.tagName; n = n.parentNode as HTMLElement | null) {
+      if (n.tagName === 'NAV' || n.tagName === 'HEADER') {
+        inNav = true;
+        break;
+      }
+    }
+    const text = clean(a.getAttribute('aria-label') || a.textContent || a.querySelector('img[alt]')?.getAttribute('alt') || a.getAttribute('title'));
+    out.push({ href, text: text.length > 80 ? `${text.slice(0, 79)}…` : text, inNav });
+  }
+  return out;
+}
+
+function scanForms(body: HTMLElement): PageModel['forms'] {
+  const forms = body.querySelectorAll('form');
+  const tools: string[] = [];
+  let partial = 0;
+  for (const f of forms) {
+    const name = clean(f.getAttribute('toolname'));
+    const desc = clean(f.getAttribute('tooldescription'));
+    if (name && desc) tools.push(name);
+    else if (name || desc) partial++;
+  }
+  return { total: forms.length, tools, partial };
+}
+
+const CONTROL_SELECTOR = 'button, a[href], input, select, textarea';
+const NAMED_INPUT_TYPES = new Set(['submit', 'reset']);
+
+function isHiddenEl(el: HTMLElement): boolean {
+  for (let n: HTMLElement | null = el; n && n.tagName; n = n.parentNode as HTMLElement | null) {
+    if (n.hasAttribute('hidden') || n.getAttribute('aria-hidden') === 'true') return true;
+    if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(n.getAttribute('style') ?? '')) return true;
+    if (n.tagName === 'TEMPLATE' || n.tagName === 'NOSCRIPT') return true;
+  }
+  return false;
+}
+
+const clean = (s: string | undefined | null) => (s ?? '').replace(/\s+/g, ' ').trim();
+
+/** Accessible name from static HTML, simplified: aria-labelledby, aria-label, label, text, img alt, svg title, title. */
+function hasAccessibleName(el: HTMLElement, root: HTMLElement): boolean {
+  const labelledby = clean(el.getAttribute('aria-labelledby'));
+  if (labelledby && labelledby.split(' ').some((id) => clean(root.querySelector(`[id="${id.replace(/"/g, '')}"]`)?.textContent))) return true;
+  if (clean(el.getAttribute('aria-label'))) return true;
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'input') {
+    const type = (el.getAttribute('type') ?? 'text').toLowerCase();
+    if (NAMED_INPUT_TYPES.has(type) || ((type === 'button') && clean(el.getAttribute('value')))) return true;
+    if (type === 'submit' || type === 'reset') return true;
+    if (type === 'image' && clean(el.getAttribute('alt'))) return true;
+  }
+  if (tag === 'input' || tag === 'select' || tag === 'textarea') {
+    const id = el.getAttribute('id');
+    if (id && clean(root.querySelector(`label[for="${id.replace(/"/g, '')}"]`)?.textContent)) return true;
+    for (let n = el.parentNode as HTMLElement | null; n && n.tagName; n = n.parentNode as HTMLElement | null) {
+      if (n.tagName === 'LABEL' && clean(n.textContent)) return true;
+    }
+  } else {
+    if (clean(el.textContent)) return true;
+    if (el.querySelectorAll('img[alt]').some((i) => clean(i.getAttribute('alt')))) return true;
+    if (el.querySelectorAll('svg[aria-label]').some((i) => clean(i.getAttribute('aria-label')))) return true;
+  }
+  return Boolean(clean(el.getAttribute('title')));
+}
+
+function describe(el: HTMLElement): string {
+  const tag = el.tagName.toLowerCase();
+  const id = el.getAttribute('id');
+  const href = el.getAttribute('href');
+  const type = el.getAttribute('type');
+  const name = el.getAttribute('name');
+  const cls = clean(el.getAttribute('class')).split(' ').filter(Boolean).slice(0, 2).join('.');
+  let d = tag;
+  if (tag === 'input' && type) d += `[type="${type}"]`;
+  if (id) d += `#${id}`;
+  else if (cls) d += `.${cls}`;
+  if (href) d += ` href="${href.length > 60 ? `${href.slice(0, 59)}…` : href}"`;
+  else if (name) d += ` name="${name}"`;
+  return `<${d}>`;
+}
+
+function scanControls(root: HTMLElement, body: HTMLElement): PageModel['controls'] {
+  let total = 0;
+  const unnamed: string[] = [];
+  for (const el of body.querySelectorAll(CONTROL_SELECTOR)) {
+    if (el.tagName === 'INPUT' && (el.getAttribute('type') ?? '').toLowerCase() === 'hidden') continue;
+    if (isHiddenEl(el)) continue;
+    total++;
+    if (!hasAccessibleName(el, root)) unnamed.push(describe(el));
+  }
+  return { total, unnamed };
 }
 
 export function firstMeta(page: PageModel, ...keys: string[]): string | undefined {

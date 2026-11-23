@@ -3,11 +3,16 @@ import { VERSION } from './constants';
 import { FetchError, HTML_TYPES, safeFetch, TEXT_TYPES, XML_TYPES, type SafeFetchOptions } from './fetch';
 import { parsePage } from './html';
 import { buildInsights, LEARN_MORE } from './insights';
-import { CATEGORIES, categoryScore, gradeFor, overallScore } from './score';
+import { isAppShell } from './checks/content';
+import { productStatuses } from './products';
+import { CATEGORIES, categoryScore, gradeFor, overallScore, scoreCap, tally, type CapInput } from './score';
+import { looksLikeHtml } from './llms';
+import { PROBE_MAX_BYTES, PROBE_TIMEOUT_MS, probeTargets, type ProbeFetch } from './probe';
+import { globalContentSignals, isAllowed, parseRobots } from './robots';
 import { normalizeInputUrl } from './ssrf';
-import type { AuditInputs, AuxFetch, CategoryResult, Fetched, Report } from './types';
+import type { AuditInputs, AuditRequestOptions, AuxFetch, CategoryResult, Fetched, Report } from './types';
 
-export interface AuditOptions {
+export interface AuditOptions extends AuditRequestOptions {
   fetchOptions?: SafeFetchOptions;
   /** Injected fetcher (tests). Defaults to `safeFetch`. */
   fetcher?: (url: string, opts: SafeFetchOptions) => Promise<Fetched>;
@@ -21,6 +26,12 @@ async function aux(fetcher: NonNullable<AuditOptions['fetcher']>, url: string, o
   }
 }
 
+function capInputFor(ctx: ReturnType<typeof buildContext>, categories: CategoryResult[]): CapInput {
+  // Only a real app shell caps the score; a short page that is fully in the HTML is thin, not hidden.
+  const shell = categories.flatMap((c) => c.checks).find((c) => c.id === 'server-rendered-text');
+  return { products: productStatuses(ctx), appShell: shell?.status === 'fail' && isAppShell(ctx.page) };
+}
+
 /** Run every check on already-fetched inputs. Pure: no network. */
 export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}): Report {
   const page = parsePage(inputs.page.body);
@@ -30,9 +41,13 @@ export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}):
       const r = fn(ctx);
       return LEARN_MORE[r.id] ? { ...r, learnMore: LEARN_MORE[r.id] } : r;
     });
-    return { ...c, checks, score: categoryScore(checks) };
+    return { ...c, checks, score: categoryScore(checks), ...(c.weight === 0 ? { tally: tally(checks) } : {}) };
   });
-  const score = overallScore(categories);
+  const rawScore = overallScore(categories);
+  const capInput = capInputFor(ctx, categories);
+  const found = scoreCap(capInput);
+  const cap = found && found.limit < rawScore ? found : null;
+  const score = cap ? cap.limit : rawScore;
   return {
     url: inputs.page.url,
     finalUrl: inputs.page.finalUrl,
@@ -40,10 +55,15 @@ export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}):
     fetchedAt: new Date().toISOString(),
     durationMs: meta.startedAt ? Date.now() - meta.startedAt : 0,
     score,
+    rawScore,
+    cap,
     grade: gradeFor(score),
     categories,
     page: { status: inputs.page.status, redirects: inputs.page.redirects, title: page.title, isAstro: page.isAstro },
-    insights: buildInsights(ctx, ctx.url.hostname, categories),
+    insights: buildInsights(ctx, ctx.url.hostname, categories, { score, rawScore, cap, capInput }),
+    options: { trainingOptOut: ctx.trainingOptOut, trainingOptOutSource: ctx.trainingOptOutSource },
+    probes: ctx.probes,
+    contentSignals: ctx.robots?.contentSignals.length ? { global: globalContentSignals(ctx.robots), lines: ctx.robots.contentSignals } : null,
     toolVersion: VERSION,
   };
 }
@@ -72,8 +92,31 @@ export async function audit(input: string, options: AuditOptions = {}): Promise<
     aux(fetcher, `${origin}/llms-full.txt`, { ...text, maxBytes: 64 * 1024, truncate: true }),
   ]);
 
-  const sitemap = await findSitemap(fetcher, origin, robots, base);
-  return analyze({ page, robots, llms, llmsFull, sitemap }, { startedAt });
+  const [sitemap, probes] = await Promise.all([findSitemap(fetcher, origin, robots, base), runProbes(fetcher, page, robots, base, Boolean(options.trainingOptOut))]);
+  return analyze({ options: { trainingOptOut: Boolean(options.trainingOptOut) }, page, robots, llms, llmsFull, sitemap, probes }, { startedAt });
+}
+
+/**
+ * Fetch the page again as up to four AI crawlers that robots.txt allows, through the same safe fetcher.
+ * Skipped when the normal request did not get a 2xx (nothing to compare against). No retries.
+ */
+async function runProbes(
+  fetcher: NonNullable<AuditOptions['fetcher']>,
+  page: Fetched,
+  robots: AuxFetch,
+  base: SafeFetchOptions,
+  optOut: boolean,
+): Promise<ProbeFetch[]> {
+  if (page.status < 200 || page.status >= 300) return [];
+  // Same robots.txt reading as the checks: unreachable or 5xx = keep out, 4xx = allow all.
+  if (!robots.ok || robots.res.status >= 500) return [];
+  const parsed = robots.res.status >= 200 && robots.res.status < 300 && !looksLikeHtml(robots.res.body) ? parseRobots(robots.res.body) : null;
+  const path = new URL(page.finalUrl);
+  const allowed = (token: string) => !parsed || isAllowed(parsed, token, path.pathname + path.search).allowed;
+  const signalled = parsed ? globalContentSignals(parsed)?.['ai-train'] === 'no' : false;
+  const targets = probeTargets(allowed, optOut || signalled);
+  const opts: SafeFetchOptions = { ...base, accept: HTML_TYPES, timeoutMs: PROBE_TIMEOUT_MS, maxBytes: PROBE_MAX_BYTES, truncate: true };
+  return Promise.all(targets.map(async (t) => ({ token: t.bot.token, userAgent: t.userAgent, res: await aux(fetcher, page.finalUrl, { ...opts, userAgent: t.userAgent }) })));
 }
 
 async function findSitemap(

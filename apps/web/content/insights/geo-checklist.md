@@ -7,10 +7,10 @@ New to the topic? Read [What is GEO, and how is it different from SEO?](/insight
 ## Crawler access
 
 - [ ] robots.txt exists at `/robots.txt`, returns 200 and parses without errors. ([AI crawlers](/insights/ai-crawlers-robots-txt))
-- [ ] Search and assistant crawlers you want are allowed: `OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Googlebot`, `Bingbot`, `Applebot`. ([AI crawlers](/insights/ai-crawlers-robots-txt))
+- [ ] Search and assistant crawlers you want are allowed: `OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Googlebot`, `Bingbot`, `Applebot`, and if you care about them `DuckAssistBot`, `Amzn-SearchBot`, `MistralAI-Index` and `meta-webindexer`. ([AI crawlers](/insights/ai-crawlers-robots-txt))
 - [ ] You have made a deliberate choice about training crawlers (`GPTBot`, `ClaudeBot`, `Google-Extended`, `Applebot-Extended`); blocking them does not remove you from search. ([AI crawlers](/insights/ai-crawlers-robots-txt))
 - [ ] You understand that user-initiated agents (`ChatGPT-User`, `Claude-User`, `Perplexity-User`) act for a person, and some may not follow robots.txt. ([AI crawlers](/insights/ai-crawlers-robots-txt))
-- [ ] Your CDN, firewall or bot protection does not block or challenge the crawlers you allow in robots.txt. ([SEO basics](/insights/seo-basics-for-ai-search))
+- [ ] Your CDN, firewall or bot protection does not block or challenge the crawlers you allow in robots.txt. GEO Audit's probe requests give a first hint; your CDN logs confirm it. ([AI crawlers](/insights/ai-crawlers-robots-txt))
 - [ ] Rate limits don't return 429 to legitimate crawlers during normal crawling. ([SEO basics](/insights/seo-basics-for-ai-search))
 
 ## Indexing directives
@@ -19,15 +19,6 @@ New to the topic? Read [What is GEO, and how is it different from SEO?](/insight
 - [ ] No unintended `nosnippet` or very low `max-snippet`; Google uses these to limit what AI features can show. ([SEO basics](/insights/seo-basics-for-ai-search))
 - [ ] Staging-only directives (a site-wide `noindex`, `Disallow: /`) were removed at launch. ([AI crawlers](/insights/ai-crawlers-robots-txt))
 - [ ] Pages you want kept out of results use `noindex` and stay crawlable; a robots.txt `Disallow` stops crawling, not necessarily indexing, and hides the `noindex` from crawlers. ([AI crawlers](/insights/ai-crawlers-robots-txt))
-
-## llms.txt
-
-- [ ] `/llms.txt` exists, is served as plain text and starts with a `# Site name` H1. ([llms.txt guide](/insights/llms-txt))
-- [ ] A one or two sentence `>` summary follows the H1 and says what the site is and who it is for. ([llms.txt guide](/insights/llms-txt))
-- [ ] Sections list your most useful pages as Markdown links with a short description each. ([llms.txt guide](/insights/llms-txt))
-- [ ] All links are absolute and return 200. ([llms.txt guide](/insights/llms-txt))
-- [ ] Optionally, `/llms-full.txt` has the readable text of your key pages. ([llms.txt guide](/insights/llms-txt))
-- [ ] The file is generated at build time, so it never goes stale. ([Astro guide](/insights/astro-llms-txt-json-ld))
 
 ## Content readable without JavaScript
 
@@ -72,6 +63,16 @@ New to the topic? Read [What is GEO, and how is it different from SEO?](/insight
 - [ ] An XML sitemap exists and is referenced from robots.txt with a `Sitemap:` line. ([SEO basics](/insights/seo-basics-for-ai-search))
 - [ ] Open Graph and X card tags give shared links a title, description and image. ([SEO basics](/insights/seo-basics-for-ai-search))
 - [ ] A mobile viewport meta tag is present. ([SEO basics](/insights/seo-basics-for-ai-search))
+
+## Optional: agent readiness
+
+These help AI agents and developer tools that act on pages. They do not affect search: Google says Search ignores llms.txt. GEO Audit reports them without scoring them.
+
+- [ ] If you publish `/llms.txt`, it is served as plain text, has a `# Site name` H1, at least one Markdown link and more than a line of content (the rules Lighthouse checks). ([llms.txt guide](/insights/llms-txt))
+- [ ] Its links are absolute, return 200 and point to the pages that best explain the site. ([llms.txt guide](/insights/llms-txt))
+- [ ] Optionally, `/llms-full.txt` has the readable text of your key pages, generated at build time so it never goes stale. ([Astro guide](/insights/astro-llms-txt-json-ld))
+- [ ] Every button, link and form field has an accessible name: visible text, a `<label>`, or `aria-label` for icon-only controls. Agents and screen readers find controls by that name.
+- [ ] Forms an agent could usefully fill in are named as tools with Chrome's experimental declarative WebMCP attributes, `toolname` and `tooldescription` on the `<form>`. ([Chrome docs](https://developer.chrome.com/docs/ai/webmcp/declarative-api))
 
 ## Measurement
 

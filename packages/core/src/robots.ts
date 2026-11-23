@@ -16,6 +16,18 @@ export interface RobotsGroup {
   /** Lower-cased product tokens, e.g. `gptbot` or `*`. */
   agents: string[];
   rules: RobotsRule[];
+  /** `Content-Signal:` values declared in this group (later lines override earlier keys). */
+  contentSignals?: ContentSignalSet;
+}
+
+/** Parsed `Content-Signal: search=yes, ai-train=no` values, keys lower-cased. */
+export type ContentSignalSet = Record<string, string>;
+
+export interface ContentSignalLine {
+  /** Lower-cased user agents of the group it belongs to; empty when it appears before any group. */
+  agents: string[];
+  signals: ContentSignalSet;
+  line: number;
 }
 
 export interface ParsedRobots {
@@ -23,6 +35,8 @@ export interface ParsedRobots {
   sitemaps: string[];
   /** Lines we could not make sense of (for diagnostics). */
   invalidLines: number[];
+  /** Every `Content-Signal:` line, in file order. Not a crawl rule; reported, never scored. */
+  contentSignals: ContentSignalLine[];
 }
 
 export interface RobotsVerdict {
@@ -36,7 +50,8 @@ export interface RobotsVerdict {
 /** Google stops reading after 500 KiB; so do we. */
 const MAX_ROBOTS_BYTES = 500 * 1024;
 
-const KEY_ALIASES: Record<string, 'user-agent' | 'allow' | 'disallow' | 'sitemap' | 'other'> = {
+const KEY_ALIASES: Record<string, 'user-agent' | 'allow' | 'disallow' | 'sitemap' | 'content-signal' | 'other'> = {
+  'content-signal': 'content-signal',
   'user-agent': 'user-agent',
   useragent: 'user-agent',
   'user agent': 'user-agent',
@@ -66,6 +81,7 @@ export function parseRobots(text: string): ParsedRobots {
   const groups: RobotsGroup[] = [];
   const sitemaps: string[] = [];
   const invalidLines: number[] = [];
+  const contentSignals: ContentSignalLine[] = [];
   let current: RobotsGroup | null = null;
   // True while we are still reading consecutive user-agent lines for `current`.
   let collectingAgents = false;
@@ -117,6 +133,15 @@ export function parseRobots(text: string): ParsedRobots {
         if (value) sitemaps.push(value);
         return;
       }
+      case 'content-signal': {
+        // A non-rule directive like crawl-delay: it ends the user-agent run, grouping is unchanged.
+        if (current) collectingAgents = false;
+        const signals = parseContentSignal(value);
+        if (!Object.keys(signals).length) return;
+        if (current) current.contentSignals = { ...current.contentSignals, ...signals };
+        contentSignals.push({ agents: current ? [...current.agents] : [], signals, line: lineNo });
+        return;
+      }
       default: {
         // Unknown directives (crawl-delay, host, clean-param ...) end the user-agent run too.
         if (current) collectingAgents = false;
@@ -125,7 +150,7 @@ export function parseRobots(text: string): ParsedRobots {
     }
   });
 
-  return { groups, sitemaps, invalidLines };
+  return { groups, sitemaps, invalidLines, contentSignals };
 }
 
 const HEX = '0123456789ABCDEF';
@@ -226,4 +251,32 @@ export function isAllowed(robots: ParsedRobots, botToken: string, pathAndQuery: 
 /** Does this bot's group disallow the whole site (`Disallow: /` with nothing allowing `/`)? */
 export function blocksEverything(robots: ParsedRobots, botToken: string): boolean {
   return !isAllowed(robots, botToken, '/').allowed && !isAllowed(robots, botToken, '/index.html').allowed;
+}
+
+/** `search=yes, ai-train=no` -> `{ search: 'yes', 'ai-train': 'no' }`. Unparseable parts are skipped. */
+export function parseContentSignal(value: string): ContentSignalSet {
+  const out: ContentSignalSet = {};
+  for (const part of value.split(',')) {
+    const m = /^\s*([a-z0-9_-]+)\s*=\s*([a-z0-9_-]+)\s*$/i.exec(part);
+    if (m) out[m[1]!.toLowerCase()] = m[2]!.toLowerCase();
+  }
+  return out;
+}
+
+/**
+ * Content signals that apply to every crawler: lines in `User-agent: *` groups, plus lines that appear
+ * before any group. Null when there are none.
+ */
+export function globalContentSignals(robots: ParsedRobots): ContentSignalSet | null {
+  const lines = robots.contentSignals.filter((c) => !c.agents.length || c.agents.includes('*'));
+  if (!lines.length) return null;
+  return Object.assign({}, ...lines.map((c) => c.signals)) as ContentSignalSet;
+}
+
+/** Signals for one crawler: its own groups if any name it, otherwise the global ones. */
+export function contentSignalsFor(robots: ParsedRobots, botToken: string): ContentSignalSet | null {
+  const token = botToken.toLowerCase();
+  const own = robots.contentSignals.filter((c) => c.agents.includes(token));
+  if (own.length) return Object.assign({}, ...own.map((c) => c.signals)) as ContentSignalSet;
+  return globalContentSignals(robots);
 }
