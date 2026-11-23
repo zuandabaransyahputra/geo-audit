@@ -1,0 +1,43 @@
+{
+  "name": "ai-geo-audit",
+  "version": "0.1.0",
+  "description": "Audit how well a website can be found, read and cited by AI search and assistants (ChatGPT, Claude, Perplexity, Google AI Overviews), plus SEO basics.",
+  "keywords": ["geo", "generative engine optimization", "seo", "llms.txt", "robots.txt", "json-ld", "ai search", "audit", "cli", "chatgpt", "perplexity", "claude"],
+  "author": {
+    "name": "Zuanda Baransyah Putra",
+    "url": "https://zuanda.web.id"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/zuandabaransyahputra/geo-audit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zuandabaransyahputra/geo-audit.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/zuandabaransyahputra/geo-audit/issues"
+  },
+  "type": "module",
+  "bin": {
+    "ai-geo-audit": "dist/index.js",
+    "geo-audit": "dist/index.js"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "prepublishOnly": "tsup"
+  },
+  "dependencies": {
+    "ipaddr.js": "2.5.0",
+    "node-html-parser": "9.0.7"
+  },
+  "devDependencies": {
+    "@geo-audit/core": "workspace:*",
+    "tsup": "8.5.1"
+  }
+}

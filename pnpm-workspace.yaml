@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+  - apps/*
+
+# Only install releases that have been public for at least 14 days.
+minimumReleaseAge: 20160
+
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
