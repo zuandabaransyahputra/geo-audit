@@ -144,7 +144,7 @@ describe('visibility', () => {
   it('treats the "others" group as a set: some blocked = partly, all blocked = blocked', () => {
     const some = analyze(inputs({ robots: robots('User-agent: CCBot\nDisallow: /') }));
     expect(vis(some, 'others').status).toBe('partly');
-    const all = analyze(inputs({ robots: robots('User-agent: CCBot\nUser-agent: Bytespider\nUser-agent: meta-externalagent\nDisallow: /') }));
+    const all = analyze(inputs({ robots: robots('User-agent: CCBot\nUser-agent: Bytespider\nDisallow: /') }));
     expect(vis(all, 'others').status).toBe('blocked');
   });
 

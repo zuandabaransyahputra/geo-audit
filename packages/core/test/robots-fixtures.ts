@@ -9,7 +9,7 @@ export const CLOUDFLARE_MANAGED = `# As a condition of accessing this website, y
 # BEGIN Cloudflare Managed content
 
 User-Agent: *
-Content-signal: search=yes,ai-train=no
+Content-signal: search=yes, ai-train=no, use=reference
 Allow: /
 
 User-agent: Amazonbot

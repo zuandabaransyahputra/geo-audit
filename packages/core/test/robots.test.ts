@@ -201,12 +201,12 @@ describe('Content-Signal', () => {
     const r = parseRobots(CLOUDFLARE_MANAGED);
     expect(r.invalidLines).toEqual([]);
     expect(r.contentSignals).toHaveLength(1);
-    expect(r.contentSignals[0]).toMatchObject({ agents: ['*'], signals: { search: 'yes', 'ai-train': 'no' } });
-    expect(globalContentSignals(r)).toEqual({ search: 'yes', 'ai-train': 'no' });
+    expect(r.contentSignals[0]).toMatchObject({ agents: ['*'], signals: { search: 'yes', 'ai-train': 'no', use: 'reference' } });
+    expect(globalContentSignals(r)).toEqual({ search: 'yes', 'ai-train': 'no', use: 'reference' });
     // The `Allow: /` after Content-signal still belongs to the `*` group.
     expect(isAllowed(r, 'Googlebot', '/').allowed).toBe(true);
     expect(isAllowed(r, 'GPTBot', '/').allowed).toBe(false);
-    expect(contentSignalsFor(r, 'GPTBot')).toEqual({ search: 'yes', 'ai-train': 'no' });
+    expect(contentSignalsFor(r, 'GPTBot')).toEqual({ search: 'yes', 'ai-train': 'no', use: 'reference' });
   });
 
   it('keeps bot-specific signals separate and lets later keys win', () => {

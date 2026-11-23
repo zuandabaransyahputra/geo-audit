@@ -1,4 +1,4 @@
-import { SCORED_BOTS, type Bot } from '../bots';
+import { AI_BOTS, SCORED_BOTS, type Bot } from '../bots';
 import { botVerdicts, directivesFor, list, productStatuses } from '../products';
 import type { CheckResult, Status } from '../types';
 import { plural, result, type CheckContext, type Spec } from './shared';
@@ -25,6 +25,10 @@ export function checkAiSearchBots(ctx: CheckContext): CheckResult {
   const details = verdicts.map(
     (v) => `${v.allowed ? 'allowed' : 'BLOCKED'}  ${v.bot.token} (${v.bot.role}${v.bot.robotsTxt === 'may-ignore' ? '; may ignore robots.txt' : ''})${!v.allowed && v.reason ? `: ${v.reason}` : ''}`,
   );
+  // Crawlers that generally ignore robots.txt are listed for information, never scored.
+  for (const v of botVerdicts(ctx, AI_BOTS.filter((b) => b.scored === false))) {
+    details.push(`info  ${v.bot.token} (${v.bot.role}; generally ignores robots.txt, not scored)${!v.allowed ? ': robots.txt blocks it' : ''}`);
+  }
   if (!blocked.length) {
     return result(spec, 'pass', `All ${bots.length} search and assistant crawlers are allowed${ctx.robots ? '' : ' (no robots.txt rules apply)'}.`, { details });
   }
