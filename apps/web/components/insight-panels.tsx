@@ -78,7 +78,7 @@ function PlanItem({ item }: { item: ActionItem }) {
         <span className={`mt-1.5 size-2 shrink-0 rounded-full ${item.status === 'fail' ? 'bg-fail' : item.status === 'warn' ? 'bg-warn' : 'bg-info'}`} aria-hidden />
         <span className="min-w-0 flex-1">
           <span className="font-medium">{item.title}</span>
-          {item.note && <span className="ml-2 text-xs text-muted-foreground">{item.note}</span>}
+          {item.note && <span className="block text-xs text-muted-foreground">{item.note}</span>}
           <span className="block truncate text-sm text-muted-foreground">{item.summary.replace(/`/g, '')}</span>
         </span>
         <span className="shrink-0 text-right">
