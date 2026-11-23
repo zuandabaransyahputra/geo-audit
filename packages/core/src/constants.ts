@@ -1,5 +1,5 @@
 /** Public URL of the hosted web app. Change it here when the demo moves. */
-export const SITE_URL = 'https://geo-audit.vercel.app';
+export const SITE_URL = 'https://geoaudit-tool.vercel.app';
 
 export const VERSION = '0.1.0';
 

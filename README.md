@@ -7,7 +7,7 @@ and copy-paste fixes. Free, open source, no sign-up.
 [![npm](https://img.shields.io/npm/v/ai-geo-audit.svg)](https://www.npmjs.com/package/ai-geo-audit)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-**Web:** https://geo-audit.vercel.app · **CLI:** `npx ai-geo-audit example.com`
+**Web:** https://geoaudit-tool.vercel.app · **CLI:** `npx ai-geo-audit example.com`
 
 ![GEO Audit report for zuanda.web.id: score 96, grade A, with category scores and top fixes](docs/screenshot.png)
 
@@ -92,7 +92,7 @@ PRs with evidence are welcome.
 
 ### Web
 
-Open https://geo-audit.vercel.app, enter a URL, share the report link (`/report?url=example.com`). Each report has a
+Open https://geoaudit-tool.vercel.app, enter a URL, share the report link (`/report?url=example.com`). Each report has a
 "Copy as Markdown" button for issues and PRs, and its own share image showing the domain and score.
 
 JSON: `GET /api/audit?url=example.com`.
@@ -146,7 +146,7 @@ The server fetches URLs that users type in, so it is careful about where it goes
 - 8 s timeout and 2 MB limit per request (counted after decompression), content-type allow-lists, no cookies.
 - Pages are parsed with a light HTML parser; fetched JavaScript is never executed.
 - Per-IP rate limit (in memory, best effort) and a 10-minute result cache.
-- Requests identify honestly as `GEO-Audit/0.1 (+https://geo-audit.vercel.app)`.
+- Requests identify honestly as `GEO-Audit/0.1 (+https://geoaudit-tool.vercel.app)`.
 
 ## Privacy
 
