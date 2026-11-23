@@ -8,15 +8,17 @@ import { StatusIcon } from './status-badge';
 /** `optOutHref`: offered on a warning ai-training-bots check, links to the same report with ?training=optout. */
 export function CheckItem({ check, impact, optOutHref }: { check: CheckResult; impact?: number; optOutHref?: string }) {
   const open = check.status === 'fail';
-  const hasBody = Boolean(check.fix || check.details?.length || check.why);
+  const hasBody = Boolean(check.fix || check.details?.length || check.why || check.notes?.length);
+  const withNotes = check.status === 'pass' && Boolean(check.notes?.length);
   const details = check.status === 'pass' ? check.details?.filter((d) => !/^allowed\s/.test(d)) : check.details;
   return (
     <details id={check.id} open={open} className="group scroll-mt-20 border-b border-border last:border-b-0">
       <summary className="flex cursor-pointer items-start gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50 sm:px-5">
-        <StatusIcon status={check.status} />
+        <StatusIcon status={check.status} notes={withNotes} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-medium">{check.title}</span>
+            {withNotes && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Pass · notes</span>}
             {impact !== undefined && impact >= 0.5 && (
               <span className="font-mono text-xs text-muted-foreground">+{Math.round(impact)} pts</span>
             )}
@@ -41,6 +43,18 @@ export function CheckItem({ check, impact, optOutHref }: { check: CheckResult; i
               </>
             )}
           </p>
+          {check.notes && check.notes.length > 0 && (
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              {check.notes.map((n) => (
+                <li key={n} className="flex gap-2">
+                  <span className="font-medium text-foreground">Note:</span>
+                  <span>
+                    <InlineMd text={n} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
           {details && details.length > 0 && (
             <ul className="space-y-1 rounded-lg bg-muted/60 p-3 font-mono text-xs leading-relaxed">
               {details.map((d) => (

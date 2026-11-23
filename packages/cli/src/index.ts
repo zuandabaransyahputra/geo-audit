@@ -169,7 +169,9 @@ function plain(s: string): string {
 }
 
 function renderCheck(check: CheckResult, o: RunOptions, c: Palette): string {
-  const lines = [`  ${icon(c, check.status)} ${c.bold(check.title)}`, `    ${plain(check.summary)}`];
+  const withNotes = check.status === 'pass' && Boolean(check.notes?.length);
+  const lines = [`  ${icon(c, check.status)} ${c.bold(check.title)}${withNotes ? c.gray(' · notes') : ''}`, `    ${plain(check.summary)}`];
+  for (const n of check.notes ?? []) lines.push(c.gray(`      note: ${plain(n)}`));
   const expand = o.all || check.status === 'fail' || check.status === 'warn';
   if (!expand) return lines.join('\n');
   if (check.details?.length && (check.status !== 'pass' || o.all)) {

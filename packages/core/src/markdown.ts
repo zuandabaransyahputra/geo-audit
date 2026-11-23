@@ -91,7 +91,7 @@ export function toMarkdown(report: Report): string {
     out.push(c.tally ? `## ${c.label} (${c.tally.passed} of ${c.tally.total} passed, not scored)` : `## ${c.label} (${c.score}/100)`);
     out.push('');
     for (const check of c.checks) {
-      out.push(`### ${ICON[check.status]} ${check.title}`);
+      out.push(`### ${ICON[check.status]} ${check.title}${check.status === 'pass' && check.notes?.length ? ' (pass with notes)' : ''}`);
       out.push('');
       out.push(check.summary);
       out.push('');
@@ -99,6 +99,10 @@ export function toMarkdown(report: Report): string {
       if (check.details?.length && check.status !== 'pass') {
         out.push('');
         for (const d of check.details) out.push(`- ${d}`);
+      }
+      if (check.notes?.length) {
+        out.push('');
+        for (const n of check.notes) out.push(`- Note: ${n}`);
       }
       if (check.fix && check.status !== 'pass') {
         out.push('');

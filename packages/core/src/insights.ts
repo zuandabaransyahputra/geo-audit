@@ -208,7 +208,7 @@ const STRENGTH: Record<string, string> = {
   'ai-search-bots': 'Every AI search and assistant crawler is allowed in',
   'indexing-directives': 'Nothing stops search engines indexing or quoting the page',
   'firewall-probe': 'Test requests as AI crawlers got the same page as a normal visitor',
-  'llms-txt': 'A well-formed llms.txt gives assistants a map of the site',
+  'llms-txt': 'llms.txt gives agents and tools a map of the site',
   'llms-full-txt': 'llms-full.txt offers the content as clean Markdown',
   'ai-training-bots': 'Models can learn about the site from every major training crawler',
   'server-rendered-text': 'The content is in the HTML, readable without JavaScript',
@@ -228,9 +228,17 @@ const STRENGTH: Record<string, string> = {
 };
 const STRENGTH_ORDER = Object.keys(STRENGTH);
 
+/** Content strengths that mean nothing when the content is not in the HTML in the first place. */
+const CONTENT_STRENGTHS = ['single-h1', 'heading-order', 'img-alt'];
+
 export function strengths(categories: CategoryResult[], limit = 6): string[] {
-  const passing = new Set(categories.flatMap((c) => c.checks).filter((c) => c.status === 'pass').map((c) => c.id));
-  return STRENGTH_ORDER.filter((id) => passing.has(id)).slice(0, limit).map((id) => STRENGTH[id]!);
+  const checks = categories.flatMap((c) => c.checks);
+  const shell = checks.find((c) => c.id === 'server-rendered-text')?.status === 'fail';
+  // Only real passes: not vacuous (nothing to check), not with caveats.
+  const passing = new Set(checks.filter((c) => c.status === 'pass' && !c.vacuous && !c.notes?.length).map((c) => c.id));
+  return STRENGTH_ORDER.filter((id) => passing.has(id) && !(shell && CONTENT_STRENGTHS.includes(id)))
+    .slice(0, limit)
+    .map((id) => STRENGTH[id]!);
 }
 
 /* ------------------------------------------------------------------------------------------------ */

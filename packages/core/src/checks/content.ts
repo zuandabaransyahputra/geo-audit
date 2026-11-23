@@ -67,7 +67,8 @@ export function checkHeadingOrder(ctx: CheckContext): CheckResult {
       fix: { text: 'Do not skip levels (h2 → h4). Style headings with CSS instead of picking a level for its size.' },
     }, Math.max(0.3, 1 - skips.length / hs.length));
   }
-  return result(spec, 'pass', `${hs.length} headings in a consistent outline.`);
+  // Two headings always "form an outline"; that is not worth calling a strength.
+  return result(spec, 'pass', `${hs.length} headings in a consistent outline.`, hs.length < 3 ? { vacuous: true } : {});
 }
 
 export function checkImgAlt(ctx: CheckContext): CheckResult {
@@ -79,7 +80,7 @@ export function checkImgAlt(ctx: CheckContext): CheckResult {
     why: 'Alt text is the only way text-only crawlers and models know what an image shows.',
   };
   const imgs = ctx.page.images;
-  if (!imgs.length) return result(spec, 'pass', 'No `<img>` elements in the initial HTML.');
+  if (!imgs.length) return result(spec, 'pass', 'No `<img>` elements in the initial HTML.', { vacuous: true });
   const missing = imgs.filter((i) => i.alt === null).length;
   const described = imgs.filter((i) => i.alt !== null).length;
   const ratio = described / imgs.length;

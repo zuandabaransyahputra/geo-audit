@@ -27,10 +27,9 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
   const tone = scoreTone(report.score);
   const optOutHref = report.options.trainingOptOut ? undefined : reportHref(report.url, { trainingOptOut: true });
   // Footer counts cover scored categories only; Agent readiness has its own "x of y passed".
-  const counts = report.categories
-    .filter(isScored)
-    .flatMap((c) => c.checks)
-    .reduce((acc, c) => ({ ...acc, [c.status]: (acc[c.status] ?? 0) + 1 }), {} as Record<string, number>);
+  const scoredChecks = report.categories.filter(isScored).flatMap((c) => c.checks);
+  const counts = scoredChecks.reduce((acc, c) => ({ ...acc, [c.status]: (acc[c.status] ?? 0) + 1 }), {} as Record<string, number>);
+  const withNotes = scoredChecks.filter((c) => c.status === 'pass' && c.notes?.length).length;
 
   return (
     <div className="space-y-8">
@@ -103,7 +102,7 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
             {report.page.redirects.length > 0 && ` · ${report.page.redirects.length} redirect${report.page.redirects.length > 1 ? 's' : ''}`} · <span className="whitespace-nowrap">{formatDate(report.fetchedAt)}</span>
             <span className="whitespace-nowrap">
               {' '}
-              · {counts.pass ?? 0} passed, {counts.warn ?? 0} warnings, {counts.fail ?? 0} failed
+              · {counts.pass ?? 0} passed{withNotes ? ` (${withNotes} with notes)` : ''}, {counts.warn ?? 0} warnings, {counts.fail ?? 0} failed
             </span>
           </p>
           <div className="flex shrink-0 gap-2">

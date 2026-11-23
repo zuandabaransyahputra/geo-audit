@@ -1,5 +1,6 @@
 import { AI_BOTS, SCORED_BOTS, type Bot } from '../bots';
 import { botVerdicts, directivesFor, list, productStatuses } from '../products';
+import { globalContentSignals } from '../robots';
 import type { CheckResult, Status } from '../types';
 import { plural, result, type CheckContext, type Spec } from './shared';
 
@@ -30,7 +31,11 @@ export function checkAiSearchBots(ctx: CheckContext): CheckResult {
     details.push(`info  ${v.bot.token} (${v.bot.role}; generally ignores robots.txt, not scored)${!v.allowed ? ': robots.txt blocks it' : ''}`);
   }
   if (!blocked.length) {
-    return result(spec, 'pass', `All ${bots.length} search and assistant crawlers are allowed${ctx.robots ? '' : ' (no robots.txt rules apply)'}.`, { details });
+    // Content signals limit use without blocking crawling; worth a note, not a deduction.
+    const signals = ctx.robots ? globalContentSignals(ctx.robots) : null;
+    const limits = Object.entries(signals ?? {}).filter(([k, v]) => (k === 'search' || k === 'ai-input') && v === 'no');
+    const notes = limits.map(([k]) => `robots.txt sets \`Content-Signal: ${k}=no\`: crawlers may fetch the page, but you ask them not to use it ${k === 'search' ? 'in search results' : 'as input for AI answers'}.`);
+    return result(spec, 'pass', `All ${bots.length} search and assistant crawlers are allowed${ctx.robots ? '' : ' (no robots.txt rules apply)'}.`, { details, ...(notes.length ? { notes } : {}) });
   }
   // Scored per product, so a handful of small crawlers cannot dilute a blocked major one.
   const products = productStatuses(ctx).filter((p) => p.kind === 'answers');
@@ -167,7 +172,9 @@ export function checkIndexing(ctx: CheckContext): CheckResult {
       },
     });
   }
-  return result(spec, 'pass', found.length ? 'Robots directives allow indexing and snippets.' : 'No noindex or nosnippet directives.');
+  const limited = found.flatMap(({ source, directives }) => directives.filter((d) => /^max-snippet:\d+$/.test(d) && d !== 'max-snippet:0').map((d) => `${d} in ${source}`));
+  const notes = limited.map((d) => `${d} limits how much text Google may quote, including in AI Overviews.`);
+  return result(spec, 'pass', found.length ? 'Robots directives allow indexing and snippets.' : 'No noindex or nosnippet directives.', notes.length ? { notes } : {});
 }
 
 export { botVerdicts, directivesFor };
@@ -189,10 +196,7 @@ export function checkFirewallProbe(ctx: CheckContext): CheckResult {
   const details = probes.map((p) => `${p.verdict === 'ok' ? 'ok' : p.verdict.toUpperCase()}  ${p.token}: ${p.detail}${p.words !== undefined && p.verdict === 'ok' ? `, ${p.words.toLocaleString('en-US')} words` : ''}`);
   const bad = probes.filter((p) => p.verdict !== 'ok');
   if (!bad.length) {
-    return result(spec, 'pass', `Requests as ${list(probes.map((p) => p.token))} got the same page as a normal request (HTTP ${status}).`, {
-      details,
-      notes: ['Indicative only: real crawlers are also verified by IP address, which a test request cannot imitate.'],
-    });
+    return result(spec, 'pass', `Requests as ${list(probes.map((p) => p.token))} got the same page as a normal request (HTTP ${status}).`, { details });
   }
   const what = bad.map((p) => `${p.token} ${p.detail}`);
   const errorsOnly = bad.every((p) => p.verdict === 'error');
