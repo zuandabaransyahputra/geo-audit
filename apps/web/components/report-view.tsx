@@ -1,4 +1,4 @@
-import { capMessage, impact, type Report } from '@geo-audit/core';
+import { capMessage, impact, isScored, type Report } from '@geo-audit/core';
 import { CheckItem } from './check-item';
 import { CopyButton } from './copy-button';
 import { HireCta } from './hire-cta';
@@ -23,7 +23,9 @@ function formatDate(iso: string) {
 
 export function ReportView({ report, markdown }: { report: Report; markdown: string }) {
   const tone = scoreTone(report.score);
+  // Footer counts cover scored categories only; Agent readiness has its own "x of y passed".
   const counts = report.categories
+    .filter(isScored)
     .flatMap((c) => c.checks)
     .reduce((acc, c) => ({ ...acc, [c.status]: (acc[c.status] ?? 0) + 1 }), {} as Record<string, number>);
 
@@ -53,6 +55,24 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
           </div>
           <div className="flex-1 space-y-3">
             {report.categories.map((c) => {
+              if (c.tally) {
+                return (
+                  <a key={c.id} href={`#${c.id}`} className="group block">
+                    <div className="mb-1 flex items-baseline justify-between text-sm">
+                      <span className="font-medium group-hover:underline group-hover:underline-offset-4">{c.label}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        <span className="text-sm font-semibold text-foreground">
+                          {c.tally.passed} of {c.tally.total}
+                        </span>{' '}
+                        passed · not scored
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-muted-foreground/40" style={{ width: `${c.tally.total ? Math.max(2, (c.tally.passed / c.tally.total) * 100) : 0}%` }} />
+                    </div>
+                  </a>
+                );
+              }
               const t = scoreTone(c.score);
               return (
                 <a key={c.id} href={`#${c.id}`} className="group block">
@@ -105,14 +125,24 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
               </h2>
               <p className="text-sm text-muted-foreground">{c.description}</p>
             </div>
-            <p className="shrink-0 text-right font-mono text-xs text-muted-foreground">
-              <span className={`text-lg font-semibold ${TEXT[scoreTone(c.score)]}`}>{c.score}</span>/100
-              <span className="block">weight {Math.round(c.weight * 100)}%</span>
-            </p>
+            {c.tally ? (
+              <p className="shrink-0 text-right font-mono text-xs text-muted-foreground">
+                <span className="text-lg font-semibold text-foreground">
+                  {c.tally.passed} of {c.tally.total}
+                </span>{' '}
+                passed
+                <span className="block">not scored</span>
+              </p>
+            ) : (
+              <p className="shrink-0 text-right font-mono text-xs text-muted-foreground">
+                <span className={`text-lg font-semibold ${TEXT[scoreTone(c.score)]}`}>{c.score}</span>/100
+                <span className="block">weight {Math.round(c.weight * 100)}%</span>
+              </p>
+            )}
           </div>
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             {c.checks.map((check) => (
-              <CheckItem key={check.id} check={check} impact={check.status === 'pass' || check.status === 'info' ? undefined : impact(check, report.categories)} />
+              <CheckItem key={check.id} check={check} impact={check.status === 'pass' || check.status === 'info' || !isScored(c) ? undefined : impact(check, report.categories)} />
             ))}
           </div>
         </section>

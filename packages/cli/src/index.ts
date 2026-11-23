@@ -172,7 +172,7 @@ function renderCheck(check: CheckResult, o: RunOptions, c: Palette): string {
     const shown = check.details.filter((d) => o.all || !/^allowed\s/.test(d));
     for (const d of shown.slice(0, 12)) lines.push(c.gray(`      · ${d}`));
   }
-  if (check.status !== 'pass' && check.status !== 'info') {
+  if (check.status !== 'pass' && (check.status !== 'info' || check.fix)) {
     lines.push(c.dim(`    Why: ${check.why}`));
     if (check.fix) {
       lines.push(`    ${c.cyan('Fix:')} ${plain(check.fix.text)}`);
@@ -195,6 +195,10 @@ function render(r: Report, o: RunOptions, c: Palette): string {
   out.push('');
   const labelWidth = Math.max(...r.categories.map((x) => x.label.length));
   for (const cat of r.categories) {
+    if (cat.tally) {
+      out.push(`  ${cat.label.padEnd(labelWidth)}  ${c.gray(`${cat.tally.passed} of ${cat.tally.total} passed · not scored`)}`);
+      continue;
+    }
     const col = scoreColor(c, cat.score);
     out.push(`  ${cat.label.padEnd(labelWidth)}  ${col(bar(cat.score))}  ${col(String(cat.score).padStart(3))}  ${c.gray(`${Math.round(cat.weight * 100)}%`)}`);
   }
@@ -211,7 +215,7 @@ function render(r: Report, o: RunOptions, c: Palette): string {
 
   for (const cat of r.categories) {
     out.push('');
-    out.push(`${c.bold(cat.label)} ${c.gray(`${cat.score}/100`)}`);
+    out.push(`${c.bold(cat.label)} ${c.gray(cat.tally ? `${cat.tally.passed} of ${cat.tally.total} passed, not scored` : `${cat.score}/100`)}`);
     for (const check of cat.checks) out.push(renderCheck(check, o, c));
   }
 
@@ -220,6 +224,7 @@ function render(r: Report, o: RunOptions, c: Palette): string {
     ['Quick wins (minutes)', plan.quickWins],
     ['This week (hours)', plan.thisWeek],
     ['Bigger projects (days)', plan.bigger],
+    ['Optional: agent readiness (not scored)', plan.optional],
   ];
   if (groups.some(([, items]) => items.length)) {
     out.push('');
@@ -227,7 +232,10 @@ function render(r: Report, o: RunOptions, c: Palette): string {
     for (const [label, items] of groups) {
       if (!items.length) continue;
       out.push(`  ${c.cyan(label)}`);
-      for (const f of items) out.push(`    · ${f.title} ${c.green(`+${points(f.points)}`)} ${c.gray(`· ${f.effortLabel}${f.learnMore ? ` · ${articleUrl(f.learnMore)}` : ''}`)}`);
+      for (const f of items) {
+        const gain = f.category === 'agent-readiness' ? c.gray('optional') : c.green(`+${points(f.points)}`);
+        out.push(`    · ${f.title} ${gain} ${c.gray(`· ${f.effortLabel}${f.learnMore ? ` · ${articleUrl(f.learnMore)}` : ''}`)}`);
+      }
     }
     const proj = [`now ${plan.current}`];
     if (plan.quickWins.length) proj.push(`after quick wins ~${plan.afterQuickWins}`);

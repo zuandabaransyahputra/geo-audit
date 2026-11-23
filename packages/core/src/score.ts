@@ -6,7 +6,22 @@ export const CATEGORIES: { id: CategoryId; label: string; description: string; w
   { id: 'content', label: 'AI-readable content', description: 'Is the content there without JavaScript, structured and attributable?', weight: 0.25 },
   { id: 'structured-data', label: 'Structured data', description: 'Does JSON-LD state who you are and what the page is?', weight: 0.2 },
   { id: 'seo', label: 'SEO basics', description: 'The classic signals AI search still builds on.', weight: 0.25 },
+  {
+    id: 'agent-readiness',
+    label: 'Agent readiness',
+    description: 'Extras for AI agents and developer tools that act on the page. Reported, not scored.',
+    weight: 0,
+  },
 ];
+
+/** True for categories that count toward the overall score. */
+export const isScored = (c: Pick<CategoryResult, 'weight'>) => c.weight > 0;
+
+/** "x of y passed" for an unscored category; informational (weight 0) checks are not counted. */
+export function tally(checks: CheckResult[]): { passed: number; total: number } {
+  const counted = checks.filter((c) => c.weight > 0);
+  return { passed: counted.filter((c) => c.status === 'pass').length, total: counted.length };
+}
 
 /** Weighted share of earned points, 0..100. Informational (weight 0) checks don't count. */
 export function categoryScore(checks: CheckResult[]): number {

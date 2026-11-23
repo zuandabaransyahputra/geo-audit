@@ -33,6 +33,7 @@ describe('scoring', () => {
       ['content', 0.25],
       ['structured-data', 0.2],
       ['seo', 0.25],
+      ['agent-readiness', 0],
     ]);
   });
 });
@@ -90,9 +91,9 @@ describe('analyze', () => {
     expect(check(snippet, 'indexing-directives').status).toBe('warn');
   });
 
-  it('treats an HTML page at /llms.txt as missing', () => {
+  it('treats an HTML page at /llms.txt as an invalid file', () => {
     const r = analyze(inputs({ llms: { ok: true, res: fetched('https://acme.dev/llms.txt', '<!doctype html><html></html>') } }));
-    expect(check(r, 'llms-txt').status).toBe('fail');
+    expect(check(r, 'llms-txt').status).toBe('warn');
     expect(check(r, 'llms-txt').fix!.snippet).toContain('# Acme Studio');
   });
 
@@ -145,7 +146,7 @@ describe('audit (with an injected fetcher)', () => {
     });
     expect(asked).toEqual(expect.arrayContaining(['https://acme.dev/', 'https://acme.dev/robots.txt', 'https://acme.dev/llms.txt', 'https://acme.dev/llms-full.txt', 'https://acme.dev/sitemap.xml']));
     expect(r.domain).toBe('acme.dev');
-    expect(check(r, 'llms-full-txt').status).toBe('warn');
+    expect(check(r, 'llms-full-txt').status).toBe('info');
     expect(r.score).toBeGreaterThan(90);
   });
 

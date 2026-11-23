@@ -49,7 +49,7 @@ export function CheckItem({ check, impact }: { check: CheckResult; impact?: numb
               ))}
             </ul>
           )}
-          {check.fix && check.status !== 'pass' && check.status !== 'info' && (
+          {check.fix && check.status !== 'pass' && (
             <div className="space-y-2">
               <p>
                 <span className="font-medium">How to fix: </span>

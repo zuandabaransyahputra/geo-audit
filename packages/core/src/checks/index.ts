@@ -4,7 +4,7 @@ import { looksLikeHtml } from '../llms';
 import { parseRobots, type ParsedRobots } from '../robots';
 import type { AuditInputs, CategoryId, CheckResult } from '../types';
 import { checkAiSearchBots, checkAiTrainingBots, checkIndexing, checkRobotsTxt } from './ai-access';
-import { checkLlmsFull, checkLlmsTxt } from './agent-readiness';
+import { checkInteractiveNames, checkLlmsFull, checkLlmsTxt, checkWebMcp } from './agent-readiness';
 import { checkAuthorship, checkFreshness, checkH1, checkHeadingOrder, checkImgAlt, checkLang, checkServerText } from './content';
 import { checkCanonical, checkDescription, checkHttps, checkOpenGraph, checkRedirects, checkSitemap, checkStatus, checkTitle, checkTwitter, checkViewport } from './seo';
 import { checkJsonLdFields, checkJsonLdPresent, checkJsonLdTypes, checkOtherStructured } from './structured-data';
@@ -14,10 +14,11 @@ export { botVerdicts, directivesFor } from './ai-access';
 export { escapeHtml, type CheckContext } from './shared';
 
 export const CHECKS: Record<CategoryId, ((ctx: CheckContext) => CheckResult)[]> = {
-  'ai-access': [checkAiSearchBots, checkIndexing, checkLlmsTxt, checkLlmsFull, checkRobotsTxt, checkAiTrainingBots],
+  'ai-access': [checkAiSearchBots, checkIndexing, checkRobotsTxt, checkAiTrainingBots],
   content: [checkServerText, checkH1, checkHeadingOrder, checkImgAlt, checkLang, checkFreshness, checkAuthorship],
   'structured-data': [checkJsonLdPresent, checkJsonLdTypes, checkJsonLdFields, checkOtherStructured],
   seo: [checkStatus, checkHttps, checkTitle, checkDescription, checkSitemap, checkCanonical, checkOpenGraph, checkRedirects, checkTwitter, checkViewport],
+  'agent-readiness': [checkLlmsTxt, checkLlmsFull, checkInteractiveNames, checkWebMcp],
 };
 
 /** Build the shared context the checks read from. */

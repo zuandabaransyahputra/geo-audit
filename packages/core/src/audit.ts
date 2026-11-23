@@ -4,7 +4,7 @@ import { FetchError, HTML_TYPES, safeFetch, TEXT_TYPES, XML_TYPES, type SafeFetc
 import { parsePage } from './html';
 import { buildInsights, LEARN_MORE } from './insights';
 import { productStatuses } from './products';
-import { CATEGORIES, categoryScore, gradeFor, overallScore, scoreCap, type CapInput } from './score';
+import { CATEGORIES, categoryScore, gradeFor, overallScore, scoreCap, tally, type CapInput } from './score';
 import { globalContentSignals } from './robots';
 import { normalizeInputUrl } from './ssrf';
 import type { AuditInputs, AuxFetch, CategoryResult, Fetched, Report } from './types';
@@ -37,7 +37,7 @@ export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}):
       const r = fn(ctx);
       return LEARN_MORE[r.id] ? { ...r, learnMore: LEARN_MORE[r.id] } : r;
     });
-    return { ...c, checks, score: categoryScore(checks) };
+    return { ...c, checks, score: categoryScore(checks), ...(c.weight === 0 ? { tally: tally(checks) } : {}) };
   });
   const rawScore = overallScore(categories);
   const capInput = capInputFor(ctx, categories);

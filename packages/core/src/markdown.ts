@@ -33,7 +33,9 @@ export function toMarkdown(report: Report): string {
   }
   out.push('| Category | Score | Weight |');
   out.push('| --- | ---: | ---: |');
-  for (const c of report.categories) out.push(`| ${c.label} | ${c.score} | ${Math.round(c.weight * 100)}% |`);
+  for (const c of report.categories) {
+    out.push(c.tally ? `| ${c.label} | ${c.tally.passed} of ${c.tally.total} passed | not scored |` : `| ${c.label} | ${c.score} | ${Math.round(c.weight * 100)}% |`);
+  }
   out.push('');
 
   const ins = report.insights;
@@ -52,6 +54,7 @@ export function toMarkdown(report: Report): string {
     ['Quick wins (minutes)', plan.quickWins],
     ['This week (hours)', plan.thisWeek],
     ['Bigger projects (days)', plan.bigger],
+    ['Optional: agent readiness (not scored)', plan.optional],
   ];
   if (groups.some(([, items]) => items.length)) {
     out.push('## Action plan');
@@ -65,7 +68,9 @@ export function toMarkdown(report: Report): string {
       out.push(`### ${label}`);
       out.push('');
       items.forEach((f, i) =>
-        out.push(`${i + 1}. **${f.title}**: ${f.summary} (+${points(f.points)} pts, ${f.effortLabel})${f.learnMore ? ` [Learn more](${articleUrl(f.learnMore)})` : ''}`),
+        out.push(
+          `${i + 1}. **${f.title}**: ${f.summary} (${f.category === 'agent-readiness' ? 'optional' : `+${points(f.points)} pts`}, ${f.effortLabel})${f.learnMore ? ` [Learn more](${articleUrl(f.learnMore)})` : ''}`,
+        ),
       );
       out.push('');
     }
@@ -79,7 +84,7 @@ export function toMarkdown(report: Report): string {
   }
 
   for (const c of report.categories) {
-    out.push(`## ${c.label} (${c.score}/100)`);
+    out.push(c.tally ? `## ${c.label} (${c.tally.passed} of ${c.tally.total} passed, not scored)` : `## ${c.label} (${c.score}/100)`);
     out.push('');
     for (const check of c.checks) {
       out.push(`### ${ICON[check.status]} ${check.title}`);

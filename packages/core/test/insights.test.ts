@@ -236,7 +236,7 @@ describe('strengths and metadata', () => {
 
   it('has effort and an existing article for every scored check', () => {
     const ids = Object.values(CHECKS).flatMap((fns) => fns.map((fn) => fn.name));
-    expect(ids.length).toBe(27);
+    expect(ids.length).toBe(29);
     const r = good();
     for (const c of r.categories.flatMap((x) => x.checks)) {
       expect(LEARN_MORE[c.id], c.id).toBeDefined();

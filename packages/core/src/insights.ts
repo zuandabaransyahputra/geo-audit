@@ -5,7 +5,7 @@
  */
 import type { CheckContext } from './checks';
 import { capitalise, list, PRODUCTS, productStatuses, type ProductStatus, type Visibility } from './products';
-import { categoryScore, impact, overallScore, scoreCap, type CapInput, type ScoreCap } from './score';
+import { categoryScore, impact, isScored, overallScore, scoreCap, type CapInput, type ScoreCap } from './score';
 import type { CategoryResult, CheckResult } from './types';
 
 /* ------------------------------------------------------------------------------------------------ */
@@ -45,6 +45,8 @@ export const LEARN_MORE: Record<string, ArticleSlug> = {
   'jsonld-types': 'json-ld-for-ai',
   'jsonld-fields': 'json-ld-for-ai',
   'microdata-rdfa': 'json-ld-for-ai',
+  'interactive-names': 'geo-checklist',
+  'webmcp-declarative': 'geo-checklist',
   'http-status': 'seo-basics-for-ai-search',
   https: 'seo-basics-for-ai-search',
   redirects: 'seo-basics-for-ai-search',
@@ -83,6 +85,7 @@ export const EFFORT: Record<string, Effort> = {
   'indexing-directives': 'minutes',
   'llms-txt': 'hours',
   'llms-full-txt': 'hours',
+  'interactive-names': 'hours',
   'server-rendered-text': 'project',
   'single-h1': 'minutes',
   'heading-order': 'hours',
@@ -125,6 +128,8 @@ export interface ActionPlan {
   quickWins: ActionItem[];
   thisWeek: ActionItem[];
   bigger: ActionItem[];
+  /** Agent readiness items: not scored, never quick wins, not in the projections. */
+  optional: ActionItem[];
   current: number;
   /** Score if every quick win passed (an upper bound). */
   afterQuickWins: number;
@@ -146,24 +151,31 @@ function scoreIf(categories: CategoryResult[], fixed: ReadonlySet<string>, cap?:
 
 export function actionPlan(categories: CategoryResult[], cap?: CapInput): ActionPlan {
   const current = scoreIf(categories, new Set(), cap);
+  const toItem = (c: CheckResult, points: number): ActionItem => {
+    const effort = EFFORT[c.id] ?? 'hours';
+    return {
+      id: c.id,
+      title: c.title,
+      summary: c.summary,
+      status: c.status,
+      category: c.category,
+      points,
+      effort,
+      effortLabel: EFFORT_LABEL[effort],
+      learnMore: LEARN_MORE[c.id],
+    };
+  };
+  const optional = categories
+    .filter((c) => !isScored(c))
+    .flatMap((c) => c.checks)
+    .filter((c) => c.status === 'warn' || c.status === 'fail' || (c.status === 'info' && c.fix))
+    .map((c) => toItem(c, 0));
   const items: ActionItem[] = categories
+    .filter(isScored)
     .flatMap((c) => c.checks)
     .filter((c) => (c.status === 'fail' || c.status === 'warn') && c.weight > 0)
-    .map((c) => {
-      const effort = EFFORT[c.id] ?? 'hours';
-      return {
-        id: c.id,
-        title: c.title,
-        summary: c.summary,
-        status: c.status,
-        category: c.category,
-        // Raw points, or more when the fix also lifts the cap (unblocking a major product).
-        points: Math.round(Math.max(impact(c, categories), scoreIf(categories, new Set([c.id]), cap) - current) * 10) / 10,
-        effort,
-        effortLabel: EFFORT_LABEL[effort],
-        learnMore: LEARN_MORE[c.id],
-      };
-    })
+    // Raw points, or more when the fix also lifts the cap (unblocking a major product).
+    .map((c) => toItem(c, Math.round(Math.max(impact(c, categories), scoreIf(categories, new Set([c.id]), cap) - current) * 10) / 10))
     .filter((i) => i.points > 0)
     // Score gain per unit of effort, then raw gain.
     .sort((a, b) => b.points / EFFORT_COST[b.effort] - a.points / EFFORT_COST[a.effort] || b.points - a.points);
@@ -173,6 +185,7 @@ export function actionPlan(categories: CategoryResult[], cap?: CapInput): Action
     quickWins,
     thisWeek: items.filter((i) => i.effort === 'hours'),
     bigger: items.filter((i) => i.effort === 'project'),
+    optional,
     current,
     afterQuickWins: Math.max(current, scoreIf(categories, new Set(quickWins.map((i) => i.id)), cap)),
     afterAll: Math.max(current, scoreIf(categories, new Set(items.map((i) => i.id)), cap)),

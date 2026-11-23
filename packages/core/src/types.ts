@@ -3,7 +3,7 @@ import type { ScoreCap } from './score';
 
 export type Status = 'pass' | 'warn' | 'fail' | 'info';
 
-export type CategoryId = 'ai-access' | 'content' | 'structured-data' | 'seo';
+export type CategoryId = 'ai-access' | 'content' | 'structured-data' | 'seo' | 'agent-readiness';
 
 export interface Fix {
   /** One or two sentences: what to do. */
@@ -32,16 +32,22 @@ export interface CheckResult {
   fix?: Fix;
   /** Slug of the article that explains this check (`/insights/<slug>`). */
   learnMore?: string;
+  /** Passed only because there was nothing to check (no images, no headings ...). Never a strength. */
+  vacuous?: boolean;
+  /** Caveats on a passing check, kept apart from `details`; shown as "Pass · notes". */
+  notes?: string[];
 }
 
 export interface CategoryResult {
   id: CategoryId;
   label: string;
   description: string;
-  /** Share of the overall score, 0..1. */
+  /** Share of the overall score, 0..1. 0 = reported but not scored (Agent readiness). */
   weight: number;
   /** 0..100 */
   score: number;
+  /** For unscored categories: how many of the counted checks pass ("2 of 3 passed"). */
+  tally?: { passed: number; total: number };
   checks: CheckResult[];
 }
 

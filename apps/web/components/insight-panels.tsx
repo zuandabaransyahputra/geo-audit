@@ -57,23 +57,28 @@ export function VisibilityPanel({ items }: { items: Insights['visibility'] }) {
   );
 }
 
-const GROUPS: { key: 'quickWins' | 'thisWeek' | 'bigger'; label: string; hint: string }[] = [
+const GROUPS: { key: 'quickWins' | 'thisWeek' | 'bigger' | 'optional'; label: string; hint: string }[] = [
   { key: 'quickWins', label: 'Quick wins', hint: 'minutes each' },
   { key: 'thisWeek', label: 'This week', hint: 'hours each' },
   { key: 'bigger', label: 'Bigger projects', hint: 'days' },
+  { key: 'optional', label: 'Optional: agent readiness', hint: 'not scored' },
 ];
 
 function PlanItem({ item }: { item: ActionItem }) {
   return (
     <li className="border-b border-border last:border-b-0">
       <a href={`#${item.id}`} className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50 sm:px-5">
-        <span className={`mt-1.5 size-2 shrink-0 rounded-full ${item.status === 'fail' ? 'bg-fail' : 'bg-warn'}`} aria-hidden />
+        <span className={`mt-1.5 size-2 shrink-0 rounded-full ${item.status === 'fail' ? 'bg-fail' : item.status === 'warn' ? 'bg-warn' : 'bg-info'}`} aria-hidden />
         <span className="min-w-0 flex-1">
           <span className="font-medium">{item.title}</span>
           <span className="block truncate text-sm text-muted-foreground">{item.summary.replace(/`/g, '')}</span>
         </span>
         <span className="shrink-0 text-right">
-          <span className="block font-mono text-xs font-semibold text-pass">+{points(item.points)} pts</span>
+          {item.category === 'agent-readiness' ? (
+            <span className="block font-mono text-xs text-muted-foreground">optional</span>
+          ) : (
+            <span className="block font-mono text-xs font-semibold text-pass">+{points(item.points)} pts</span>
+          )}
           <span className="block text-[11px] text-muted-foreground">{item.effortLabel}</span>
         </span>
       </a>
@@ -82,8 +87,8 @@ function PlanItem({ item }: { item: ActionItem }) {
 }
 
 export function ActionPlanPanel({ plan }: { plan: Insights['plan'] }) {
-  const any = plan.quickWins.length + plan.thisWeek.length + plan.bigger.length > 0;
-  if (!any) return null;
+  const scored = plan.quickWins.length + plan.thisWeek.length + plan.bigger.length > 0;
+  if (!scored && !plan.optional.length) return null;
   return (
     <section aria-labelledby="action-plan">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
@@ -93,6 +98,7 @@ export function ActionPlanPanel({ plan }: { plan: Insights['plan'] }) {
           </h2>
           <p className="text-sm text-muted-foreground">Ordered by points gained per effort. Points and effort are estimates.</p>
         </div>
+        {scored && (
         <dl className="flex items-end gap-3 text-center" aria-label="Projected score">
           <div>
             <dt className="text-[11px] text-muted-foreground">Now</dt>
@@ -117,6 +123,7 @@ export function ActionPlanPanel({ plan }: { plan: Insights['plan'] }) {
             <dd className="font-mono text-lg font-semibold text-pass">≤{plan.afterAll}</dd>
           </div>
         </dl>
+        )}
       </div>
       <div className="space-y-4">
         {GROUPS.map((g) => {

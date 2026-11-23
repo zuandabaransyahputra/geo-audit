@@ -19,7 +19,7 @@ export {
 export { validateLlmsTxt, looksLikeHtml, type LlmsValidation } from './llms';
 export { extractJsonLd, missingFields, nameOf, normalizeType, type JsonLdExtraction, type JsonLdNode } from './jsonld';
 export { parsePage, countWords, type PageModel } from './html';
-export { CATEGORIES, categoryScore, overallScore, gradeFor, impact, topFixes, scoreCap, capMessage, capForBlocked, APP_SHELL_CAP, type ScoreCap, type CapInput } from './score';
+export { CATEGORIES, categoryScore, overallScore, gradeFor, impact, topFixes, isScored, tally, scoreCap, capMessage, capForBlocked, APP_SHELL_CAP, type ScoreCap, type CapInput } from './score';
 export { AI_BOTS, SCORED_BOTS, botByToken, type Bot, type BotPurpose } from './bots';
 export { productStatuses, type ProductStatus, type ProductSpec, type Tier, type CrawlerState } from './products';
 export { toMarkdown, reportUrl, articleUrl, points } from './markdown';
