@@ -129,6 +129,11 @@ export interface ActionItem {
   learnMore?: ArticleSlug;
   /** A caveat shown with the item, e.g. "Only if you want models to learn from the site". */
   note?: string;
+  /**
+   * The score is capped and this fix alone does not lift the cap: `points` are what it adds once the cap is
+   * lifted, not now.
+   */
+  afterCap?: boolean;
 }
 
 export interface ActionPlan {
@@ -156,8 +161,11 @@ function scoreIf(categories: CategoryResult[], fixed: ReadonlySet<string>, cap?:
   return limit === undefined ? raw : Math.min(raw, limit);
 }
 
+const gainNow = (i: ActionItem) => (i.afterCap ? 0 : i.points);
+
 export function actionPlan(categories: CategoryResult[], cap?: CapInput): ActionPlan {
   const current = scoreIf(categories, new Set(), cap);
+  const capped = current < scoreIf(categories, new Set());
   const toItem = (c: CheckResult, points: number): ActionItem => {
     const effort = EFFORT[c.id] ?? 'hours';
     return {
@@ -182,11 +190,17 @@ export function actionPlan(categories: CategoryResult[], cap?: CapInput): Action
     .filter(isScored)
     .flatMap((c) => c.checks)
     .filter((c) => (c.status === 'fail' || c.status === 'warn') && c.weight > 0)
-    // Raw points, or more when the fix also lifts the cap (unblocking a major product).
-    .map((c) => toItem(c, Math.round(Math.max(impact(c, categories), scoreIf(categories, new Set([c.id]), cap) - current) * 10) / 10))
+    .map((c) => {
+      const raw = impact(c, categories);
+      const now = scoreIf(categories, new Set([c.id]), cap) - current;
+      // Capped and this fix alone cannot move the score: show its raw points, flagged as "after the cap".
+      if (capped && now <= 0) return { ...toItem(c, Math.round(raw * 10) / 10), afterCap: true };
+      // Otherwise the real gain, which is more than the raw points when the fix lifts the cap.
+      return toItem(c, Math.round(Math.max(raw, now) * 10) / 10);
+    })
     .filter((i) => i.points > 0)
-    // Score gain per unit of effort, then raw gain.
-    .sort((a, b) => b.points / EFFORT_COST[b.effort] - a.points / EFFORT_COST[a.effort] || b.points - a.points);
+    // Score gain now per unit of effort (after-cap items count as 0), then raw gain.
+    .sort((a, b) => gainNow(b) / EFFORT_COST[b.effort] - gainNow(a) / EFFORT_COST[a.effort] || b.points - a.points);
 
   const quickWins = items.filter((i) => i.effort === 'minutes');
   return {
@@ -276,6 +290,15 @@ const GAP: Record<string, string> = {
   viewport: 'the page has no mobile viewport',
 };
 
+/** GAP wording, except a thin but static page is not "hidden behind JavaScript". */
+function gapText(item: ActionItem, categories: CategoryResult[]): string {
+  if (item.id === 'server-rendered-text') {
+    const c = categories.flatMap((x) => x.checks).find((x) => x.id === item.id);
+    if (c && !/app shell/.test(c.summary)) return 'there is very little text in the initial HTML for assistants to quote';
+  }
+  return GAP[item.id] ?? item.title.toLowerCase();
+}
+
 const CATEGORY_NAME: Record<string, string> = {
   'ai-access': 'AI access',
   content: 'AI-readable content',
@@ -311,11 +334,14 @@ export function summary(input: {
   const shutOut = blocked.length >= 2;
 
   const raw = input.rawScore ?? score;
-  if (cap && raw >= 70) {
+  if (cap && raw >= 70 && blocked.length) {
     // The page is fine; access is what holds the score down.
     out.push(
       `${domain} scores ${score}/100: the page itself is in ${raw >= 90 ? 'very good' : 'decent'} shape, but ${shutOut ? 'several AI assistants are kept out' : 'not every AI assistant is let in'}.`,
     );
+  } else if (cap && raw >= 70) {
+    // Only the app-shell cap applies: the markup is fine, the content is not in it.
+    out.push(`${domain} scores ${score}/100: the markup is in ${raw >= 90 ? 'very good' : 'decent'} shape, but the content only appears after JavaScript runs.`);
   } else if (score >= 90) {
     out.push(
       blocked.length
@@ -346,15 +372,15 @@ export function summary(input: {
     out.push(`${capitalise(sentence)}.`);
   }
 
-  const gaps = [...plan.quickWins, ...plan.thisWeek, ...plan.bigger].sort((a, b) => b.points - a.points);
+  const gaps = [...plan.quickWins, ...plan.thisWeek, ...plan.bigger].sort((a, b) => gainNow(b) - gainNow(a) || b.points - a.points);
   const top = gaps[0];
   const topCat = top ? categories.find((c) => c.id === top.category) : undefined;
   if (!top) {
     out.push('There is nothing significant left to fix; keep content dated and up to date so assistants keep trusting it.');
   } else if (top.points >= 3) {
-    out.push(`The biggest gap is that ${GAP[top.id] ?? top.title.toLowerCase()}${topCat && topCat.score < 60 ? `, which holds ${CATEGORY_NAME[topCat.id]} at ${topCat.score}/100` : ''}.`);
+    out.push(`The biggest gap is that ${gapText(top, categories)}${topCat && topCat.score < 60 ? `, which holds ${CATEGORY_NAME[topCat.id]} at ${topCat.score}/100` : ''}.`);
   } else {
-    out.push(`What is left is polish: ${GAP[top.id] ?? top.title.toLowerCase()}.`);
+    out.push(`What is left is polish: ${gapText(top, categories)}.`);
   }
 
   const gain = plan.afterQuickWins - plan.current;

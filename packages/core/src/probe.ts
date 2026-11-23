@@ -69,17 +69,19 @@ export function wordsOf(body: string): number {
 }
 
 export function classifyProbe(baseline: Fetched, baselineWords: number, probe: ProbeFetch): ProbeResult {
-  const base = { token: probe.token, userAgent: probe.userAgent };
-  if (!probe.res.ok) return { ...base, verdict: 'error', detail: `failed (${probe.res.error})` };
+  const who = { token: probe.token, userAgent: probe.userAgent };
+  if (!probe.res.ok) return { ...who, verdict: 'error', detail: `failed (${probe.res.error})` };
   const res = probe.res.res;
   const status = res.status;
-  if (isChallenge(res) && !isChallenge(baseline)) return { ...base, verdict: 'challenge', status, detail: `got a challenge page (HTTP ${status})` };
-  if (BLOCK_STATUSES.has(status) || status >= 500) return { ...base, verdict: 'blocked', status, detail: `got HTTP ${status}` };
-  if (status < 200 || status >= 300) return { ...base, verdict: 'different', status, detail: `got HTTP ${status}` };
+  if (isChallenge(res) && !isChallenge(baseline)) return { ...who, verdict: 'challenge', status, detail: `got a challenge page (HTTP ${status})` };
+  if (BLOCK_STATUSES.has(status) || status >= 500) return { ...who, verdict: 'blocked', status, detail: `got HTTP ${status}` };
+  if (status < 200 || status >= 300) return { ...who, verdict: 'different', status, detail: `got HTTP ${status}` };
   const words = wordsOf(res.body);
-  if (baselineWords >= 50 && words < baselineWords * 0.3) {
-    return { ...base, verdict: 'different', status, words, detail: `got a much shorter page (${words.toLocaleString('en-US')} words instead of ${baselineWords.toLocaleString('en-US')})` };
+  // A probe stops reading at PROBE_MAX_BYTES; compare against the same slice of the normal page, not all of it.
+  const base = res.truncated ? wordsOf(baseline.body.slice(0, res.body.length)) : baselineWords;
+  if (base >= 50 && words < base * 0.3) {
+    return { ...who, verdict: 'different', status, words, detail: `got a much shorter page (${words.toLocaleString('en-US')} words instead of ${base.toLocaleString('en-US')})` };
   }
-  return { ...base, verdict: 'ok', status, words, detail: `got HTTP ${status}` };
+  return { ...who, verdict: 'ok', status, words, detail: `got HTTP ${status}` };
 }
 

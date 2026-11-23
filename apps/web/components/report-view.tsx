@@ -1,4 +1,4 @@
-import { capMessage, impact, isScored, type Report } from '@geo-audit/core';
+import { capMessage, isScored, type Report } from '@geo-audit/core';
 import Link from 'next/link';
 import { reportHref } from '@/lib/site';
 import { CheckItem } from './check-item';
@@ -26,6 +26,9 @@ function formatDate(iso: string) {
 export function ReportView({ report, markdown }: { report: Report; markdown: string }) {
   const tone = scoreTone(report.score);
   const hire = hireVariant(report);
+  // Same points as the action plan (they include lifting the score cap), so the two never disagree.
+  const plan = report.insights.plan;
+  const planPoints = new Map([...plan.quickWins, ...plan.thisWeek, ...plan.bigger].map((i) => [i.id, i]));
   const optOutHref = report.options.trainingOptOut ? undefined : reportHref(report.url, { trainingOptOut: true });
   // Footer counts cover scored categories only; Agent readiness has its own "x of y passed".
   const scoredChecks = report.categories.filter(isScored).flatMap((c) => c.checks);
@@ -156,7 +159,7 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
           </div>
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             {c.checks.map((check) => (
-              <CheckItem key={check.id} check={check} optOutHref={optOutHref} impact={check.status === 'pass' || check.status === 'info' || !isScored(c) ? undefined : impact(check, report.categories)} />
+              <CheckItem key={check.id} check={check} optOutHref={optOutHref} impact={planPoints.get(check.id)?.points} afterCap={planPoints.get(check.id)?.afterCap} />
             ))}
           </div>
         </section>

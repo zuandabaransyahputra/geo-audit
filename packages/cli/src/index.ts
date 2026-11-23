@@ -240,7 +240,7 @@ function render(r: Report, o: RunOptions, c: Palette): string {
       if (!items.length) continue;
       out.push(`  ${c.cyan(label)}`);
       for (const f of items) {
-        const gain = f.category === 'agent-readiness' ? c.gray('optional') : c.green(`+${points(f.points)}`);
+        const gain = f.category === 'agent-readiness' ? c.gray('optional') : f.afterCap ? c.gray(`+${points(f.points)} after the cap`) : c.green(`+${points(f.points)}`);
         out.push(`    · ${f.title} ${gain} ${c.gray(`· ${f.effortLabel}${f.note ? ` · ${f.note.toLowerCase()}` : ''}${f.learnMore ? ` · ${articleUrl(f.learnMore)}` : ''}`)}`);
       }
     }

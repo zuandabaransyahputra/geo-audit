@@ -3,6 +3,7 @@ import { VERSION } from './constants';
 import { FetchError, HTML_TYPES, safeFetch, TEXT_TYPES, XML_TYPES, type SafeFetchOptions } from './fetch';
 import { parsePage } from './html';
 import { buildInsights, LEARN_MORE } from './insights';
+import { isAppShell } from './checks/content';
 import { productStatuses } from './products';
 import { CATEGORIES, categoryScore, gradeFor, overallScore, scoreCap, tally, type CapInput } from './score';
 import { looksLikeHtml } from './llms';
@@ -26,8 +27,9 @@ async function aux(fetcher: NonNullable<AuditOptions['fetcher']>, url: string, o
 }
 
 function capInputFor(ctx: ReturnType<typeof buildContext>, categories: CategoryResult[]): CapInput {
+  // Only a real app shell caps the score; a short page that is fully in the HTML is thin, not hidden.
   const shell = categories.flatMap((c) => c.checks).find((c) => c.id === 'server-rendered-text');
-  return { products: productStatuses(ctx), appShell: shell?.status === 'fail' };
+  return { products: productStatuses(ctx), appShell: shell?.status === 'fail' && isAppShell(ctx.page) };
 }
 
 /** Run every check on already-fetched inputs. Pure: no network. */

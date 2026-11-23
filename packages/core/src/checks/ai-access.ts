@@ -190,8 +190,16 @@ export function checkFirewallProbe(ctx: CheckContext): CheckResult {
   const probes = ctx.probes;
   const status = ctx.inputs.page.status;
   if (!probes.length) {
-    const why = status < 200 || status >= 300 ? `the page itself returned HTTP ${status}` : 'robots.txt allows none of the crawlers we probe';
-    return result(spec, 'info', `No probes ran: ${why}.`, { vacuous: true });
+    // Nothing was tested, so nothing is earned either: weight 0 keeps it out of the score.
+    const why =
+      ctx.inputs.probes === undefined
+        ? 'probes are only sent during a live audit'
+        : status < 200 || status >= 300
+          ? `the page itself returned HTTP ${status}`
+          : ctx.robotsState === 'server-error' || ctx.robotsState === 'error'
+            ? 'robots.txt could not be fetched, so every crawler is treated as blocked'
+            : 'robots.txt allows none of the crawlers we probe';
+    return result(spec, 'info', `No probes ran: ${why}.`, { vacuous: true, weight: 0 });
   }
   const details = probes.map((p) => `${p.verdict === 'ok' ? 'ok' : p.verdict.toUpperCase()}  ${p.token}: ${p.detail}${p.words !== undefined && p.verdict === 'ok' ? `, ${p.words.toLocaleString('en-US')} words` : ''}`);
   const bad = probes.filter((p) => p.verdict !== 'ok');

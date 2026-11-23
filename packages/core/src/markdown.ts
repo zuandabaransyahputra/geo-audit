@@ -73,7 +73,7 @@ export function toMarkdown(report: Report): string {
       out.push('');
       items.forEach((f, i) =>
         out.push(
-          `${i + 1}. **${f.title}**: ${f.summary} (${f.category === 'agent-readiness' ? 'optional' : `+${points(f.points)} pts`}, ${f.effortLabel}${f.note ? `; ${f.note.toLowerCase()}` : ''})${f.learnMore ? ` [Learn more](${articleUrl(f.learnMore)})` : ''}`,
+          `${i + 1}. **${f.title}**: ${f.summary} (${f.category === 'agent-readiness' ? 'optional' : `+${points(f.points)} pts${f.afterCap ? ' after the cap' : ''}`}, ${f.effortLabel}${f.note ? `; ${f.note.toLowerCase()}` : ''})${f.learnMore ? ` [Learn more](${articleUrl(f.learnMore)})` : ''}`,
         ),
       );
       out.push('');

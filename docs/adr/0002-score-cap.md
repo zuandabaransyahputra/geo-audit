@@ -17,6 +17,14 @@ Status: accepted (2026-11-23)
   is in decent shape, but several AI assistants are kept out"), so a well-built but blocked page is not described as
   poorly built.
 
+- Amended after review: only a real app shell (a mount point with no text, or a noscript "enable JavaScript" page)
+  caps at 69. A short page whose text is all in the HTML fails server-rendered-text as thin, but is not capped and is
+  not described as hidden behind JavaScript, in the cap, the summary or the visibility panel.
+- Amended after review: robots directives aimed at one crawler (`<meta name="bingbot">`, `X-Robots-Tag: googlebot: ...`)
+  only affect the product of that crawler. Generic ones (`<meta name="robots">`, plain `X-Robots-Tag`) affect all.
+- Amended after review: while the score is capped, a fix that cannot lift the cap on its own keeps its raw points but
+  is flagged `afterCap` ("+2 pts after the cap") and ranks by a current gain of 0.
+
 ## Consequences
 
 Projections can jump by more than one check's weight when a cap lifts; that is intended.

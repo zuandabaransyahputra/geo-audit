@@ -3,10 +3,15 @@ import { ENTITY_TYPES, nameOf, textValue } from '../jsonld';
 import type { CheckResult } from '../types';
 import { escapeHtml, pct, plural, result, truncate, type CheckContext, type Spec } from './shared';
 
-/** The same test checkServerText fails on: an app shell, or almost no text in the initial HTML. */
-export function serverTextFails(page: PageModel): boolean {
+/** A client-side app shell: the text only appears after JavaScript runs (the first fail case of checkServerText). */
+export function isAppShell(page: PageModel): boolean {
   const { wordCount, appShell, noscriptSaysEnableJs } = page;
-  return appShell || (noscriptSaysEnableJs && wordCount < 150) || wordCount < 50;
+  return appShell || (noscriptSaysEnableJs && wordCount < 150);
+}
+
+/** Every case checkServerText fails on: an app shell, or a page with almost no text (which may be fully static). */
+export function serverTextFails(page: PageModel): boolean {
+  return isAppShell(page) || page.wordCount < 50;
 }
 
 export function checkServerText(ctx: CheckContext): CheckResult {

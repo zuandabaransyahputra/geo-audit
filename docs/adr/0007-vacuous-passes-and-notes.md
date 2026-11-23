@@ -11,4 +11,7 @@ Status: accepted (2026-11-23)
   for all crawlers (on ai-search-bots), and `max-snippet:N` with N above 0 (on indexing-directives). Strengths skip
   any check with notes.
 - The firewall-probe pass carries no note; the "indicative" wording is in the warning summary, where it matters.
+- The JSON-LD sameAs suggestion only takes profile-shaped links per site (LinkedIn company/in, GitHub user or org,
+  X/Twitter handle, YouTube @handle or channel, TikTok @handle, Instagram and Facebook page names), never posts, videos
+  or repositories. (Amended after review.)
 - The llms-txt strength now reads "llms.txt gives agents and tools a map of the site", without "well-formed".

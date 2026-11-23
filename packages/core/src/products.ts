@@ -5,7 +5,7 @@
  * disagree.
  */
 import { AI_BOTS, botByToken, type Bot } from './bots';
-import { serverTextFails } from './checks/content';
+import { isAppShell } from './checks/content';
 import type { CheckContext } from './checks/shared';
 import { isAllowed } from './robots';
 
@@ -218,12 +218,13 @@ export function botVerdicts(ctx: CheckContext, bots: Bot[]): BotVerdict[] {
   });
 }
 
-export function directivesFor(ctx: CheckContext): { source: string; directives: string[] }[] {
-  const out: { source: string; directives: string[] }[] = [];
+/** Robots directives on the page. `agent` is `*` for generic ones (meta robots, plain X-Robots-Tag), else a lower-cased crawler token. */
+export function directivesFor(ctx: CheckContext): { source: string; agent: string; directives: string[] }[] {
+  const out: { source: string; agent: string; directives: string[] }[] = [];
   const split = (s: string) => s.toLowerCase().split(/\s*,\s*/).map((d) => d.trim()).filter(Boolean);
   const names = ['robots', 'googlebot', 'bingbot', ...AI_BOTS.map((b) => b.token.toLowerCase())];
   for (const n of names) {
-    for (const c of ctx.page.meta.get(n) ?? []) out.push({ source: `<meta name="${n}">`, directives: split(c) });
+    for (const c of ctx.page.meta.get(n) ?? []) out.push({ source: `<meta name="${n}">`, agent: n === 'robots' ? '*' : n, directives: split(c) });
   }
   const header = ctx.inputs.page.headers['x-robots-tag'];
   if (header) {
@@ -238,7 +239,7 @@ export function directivesFor(ctx: CheckContext): { source: string; directives: 
         if (m[2]) buckets.set(agent, [...(buckets.get(agent) ?? []), m[2].toLowerCase()]);
       } else if (p) buckets.set(agent, [...(buckets.get(agent) ?? []), p.toLowerCase()]);
     }
-    for (const [a, d] of buckets) out.push({ source: `X-Robots-Tag${a === '*' ? '' : ` (${a})`}`, directives: d });
+    for (const [a, d] of buckets) out.push({ source: `X-Robots-Tag${a === '*' ? '' : ` (${a})`}`, agent: a, directives: d });
   }
   return out;
 }
@@ -268,16 +269,19 @@ export function productStatuses(ctx: CheckContext): ProductStatus[] {
   if (hit) return hit;
   const verdicts = new Map(botVerdicts(ctx, AI_BOTS).map((v) => [v.bot.token, v.allowed]));
   const allowed = (token: string) => verdicts.get(token) ?? true;
-  const directives = directivesFor(ctx).flatMap((d) => d.directives);
-  const noindex = directives.some((d) => d === 'noindex' || d === 'none');
-  const nosnippet = directives.some((d) => d === 'nosnippet' || d === 'max-snippet:0');
-  const jsOnly = serverTextFails(ctx.page);
+  const allDirectives = directivesFor(ctx);
+  const jsOnly = isAppShell(ctx.page);
   const status = ctx.inputs.page.status;
   const gone = status === 404 || status === 410;
   const errorStatus = !gone && (status < 200 || status >= 300);
   const robotsDown = ctx.robotsState === 'server-error' || ctx.robotsState === 'error';
 
   const out = PRODUCTS.map((p): ProductStatus => {
+    // Generic directives apply to every product; crawler-specific ones only to the product of that crawler.
+    const own = new Set([...p.primary, ...p.secondary].map((t) => t.toLowerCase()));
+    const directives = allDirectives.filter((d) => d.agent === '*' || own.has(d.agent)).flatMap((d) => d.directives);
+    const noindex = directives.some((d) => d === 'noindex' || d === 'none');
+    const nosnippet = directives.some((d) => d === 'nosnippet' || d === 'max-snippet:0');
     const crawlers: CrawlerState[] = [...p.primary.map((t) => [t, true] as const), ...p.secondary.map((t) => [t, false] as const)].map(([token, primary]) => {
       const bot = botByToken(token);
       return {

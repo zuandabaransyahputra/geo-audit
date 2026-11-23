@@ -85,7 +85,9 @@ function PlanItem({ item }: { item: ActionItem }) {
           {item.category === 'agent-readiness' ? (
             <span className="block font-mono text-xs text-muted-foreground">optional</span>
           ) : (
-            <span className="block font-mono text-xs font-semibold text-pass">+{points(item.points)} pts</span>
+            <span className={`block font-mono text-xs font-semibold ${item.afterCap ? 'text-muted-foreground' : 'text-pass'}`}>
+              +{points(item.points)} pts{item.afterCap && <span className="block text-[11px] font-normal">after the cap</span>}
+            </span>
           )}
           <span className="block text-[11px] text-muted-foreground">{item.effortLabel}</span>
         </span>

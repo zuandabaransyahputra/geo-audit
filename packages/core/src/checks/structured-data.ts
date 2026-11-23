@@ -4,9 +4,17 @@ import { ENTITY_TYPES, missingFields, textValue, USEFUL_TYPES } from '../jsonld'
 import type { CheckResult } from '../types';
 import { plural, result, truncate, type CheckContext, type Spec } from './shared';
 
-const SOCIAL_HOSTS = ['linkedin.com', 'github.com', 'x.com', 'twitter.com', 'facebook.com', 'instagram.com', 'youtube.com', 'tiktok.com'];
-/** Share buttons and intents, not profiles. */
-const SHARE_PATH = /^\/(intent|share|sharer|shareArticle|sharing|dialog|hashtag|home)\b/i;
+/** Profile-shaped paths per social host; anything else (posts, videos, repos, share links) is not a sameAs. */
+const PROFILE: Record<string, RegExp> = {
+  'linkedin.com': /^\/(company|in|school|showcase)\/[^/]+\/?$/i,
+  'github.com': /^\/(?!(features|about|sponsors|topics|orgs|marketplace|login|settings|explore|pricing)\/?$)[A-Za-z0-9-]+\/?$/,
+  'x.com': /^\/(?!(intent|share|home|search|hashtag|i)\/?$)[A-Za-z0-9_]+\/?$/,
+  'twitter.com': /^\/(?!(intent|share|home|search|hashtag|i)\/?$)[A-Za-z0-9_]+\/?$/,
+  'facebook.com': /^\/(?!(sharer|share|dialog|groups|events|watch|hashtag)\b)[A-Za-z0-9.-]+\/?$/,
+  'instagram.com': /^\/(?!(p|reel|reels|explore|stories)\/?$)[A-Za-z0-9_.]+\/?$/,
+  'youtube.com': /^\/(@[^/]+|(channel|c|user)\/[^/]+)\/?$/,
+  'tiktok.com': /^\/@[^/]+\/?$/,
+};
 
 /** Profile links to the social sites above, from the page's own anchors. */
 export function socialLinks(ctx: CheckContext, max = 8): string[] {
@@ -19,10 +27,9 @@ export function socialLinks(ctx: CheckContext, max = 8): string[] {
       continue;
     }
     const host = u.hostname.toLowerCase().replace(/^(www|m)\./, '');
-    if (!SOCIAL_HOSTS.includes(host) || u.pathname.length < 2 || SHARE_PATH.test(u.pathname)) continue;
-    u.hash = '';
-    u.search = '';
-    const href = u.href.replace(/\/$/, '');
+    const shape = PROFILE[host];
+    if (!shape || !shape.test(u.pathname) || u.searchParams.has('v')) continue;
+    const href = `${u.origin}${u.pathname}`.replace(/\/$/, '');
     if (!out.includes(href)) out.push(href);
     if (out.length >= max) break;
   }

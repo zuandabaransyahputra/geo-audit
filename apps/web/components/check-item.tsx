@@ -1,4 +1,4 @@
-import type { CheckResult } from '@geo-audit/core';
+import { points, type CheckResult } from '@geo-audit/core';
 import Link from 'next/link';
 import { CopyButton } from './copy-button';
 import { Chevron } from './icons';
@@ -6,7 +6,7 @@ import { InlineMd } from './inline-md';
 import { StatusIcon } from './status-badge';
 
 /** `optOutHref`: offered on a warning ai-training-bots check, links to the same report with ?training=optout. */
-export function CheckItem({ check, impact, optOutHref }: { check: CheckResult; impact?: number; optOutHref?: string }) {
+export function CheckItem({ check, impact, afterCap, optOutHref }: { check: CheckResult; impact?: number; afterCap?: boolean; optOutHref?: string }) {
   const open = check.status === 'fail';
   const hasBody = Boolean(check.fix || check.details?.length || check.why || check.notes?.length);
   const withNotes = check.status === 'pass' && Boolean(check.notes?.length);
@@ -19,8 +19,8 @@ export function CheckItem({ check, impact, optOutHref }: { check: CheckResult; i
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-medium">{check.title}</span>
             {withNotes && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Pass · notes</span>}
-            {impact !== undefined && impact >= 0.5 && (
-              <span className="font-mono text-xs text-muted-foreground">+{Math.round(impact)} pts</span>
+            {impact !== undefined && impact > 0 && (
+              <span className="font-mono text-xs text-muted-foreground">+{points(impact)} pts{afterCap ? ' after the cap' : ''}</span>
             )}
           </div>
           <p className="mt-0.5 break-words text-sm text-muted-foreground">

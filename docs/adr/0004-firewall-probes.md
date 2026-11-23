@@ -17,6 +17,9 @@ Status: accepted (2026-11-23)
   The markers are heuristics, not vendor claims, and only count when the normal response lacks them.
 - `different` is reported in the check but does not change visibility; only `blocked` and `challenge` make a product
   `partly`.
-- With no probes, firewall-probe is `info` (vacuous) and keeps its full weight, so a site is not penalised for having
-  nothing to probe.
+- With no probes, firewall-probe is `info` (vacuous) with weight 0: nothing was tested, so nothing is earned or lost.
+  The summary says why: an offline `analyze()` call, a non-2xx page, an unreachable robots.txt, or no allowed crawler.
+  (Amended after review; the first version kept the full weight.)
+- A probe stops at 512 KB, so when it is truncated its word count is compared with the same slice of the normal page,
+  not the whole page.
 - The probe marker uses the major.minor version: `GEO-Audit-probe/0.2`.

@@ -103,7 +103,8 @@ verdict per probe is `ok`; `blocked` (401, 403, 429 or 5xx while the normal requ
 `cf-mitigated: challenge` header or a known challenge page); `different` (another error status, or under 30% of the
 normal page's words); or `error`. The `firewall-probe` check passes when every probe is `ok`. The result is indicative:
 real crawlers are also verified by IP address, which a test request cannot imitate. A blocked or challenged probe makes
-the product "partly" visible, never "blocked", and never triggers the score cap.
+the product "partly" visible, never "blocked", and never triggers the score cap. When no probe runs, the check is
+information with weight 0, so it neither earns nor costs points.
 
 ### Training opt-out
 
@@ -143,7 +144,8 @@ panel and the score cap all read from it, so they cannot disagree.
 A product is **blocked** when robots.txt blocks its primary crawler (one that respects robots.txt). It is **partly**
 visible when a secondary crawler or a may-ignore crawler is blocked, or when one of these applies:
 
-- the page is marked `noindex` (blocked for Google and Bing, which document it; partly for the others);
+- the page is marked `noindex` (blocked for Google and Bing, which document it; partly for the others). A directive
+  aimed at one crawler (`<meta name="bingbot">`, `X-Robots-Tag: googlebot: ...`) only affects that crawler's product;
 - `nosnippet` / `max-snippet:0` is set (partly for Google and Apple, whose answers honour it);
 - the content only appears after JavaScript runs (partly for everyone except Google, whose crawler renders JS);
 - the page returns an error status;
@@ -214,12 +216,12 @@ Markdown files in [`apps/web/content/insights`](apps/web/content/insights), with
   | 3–4 | 69 |
   | 5–6 | 54 |
 
-  A failing `server-rendered-text` check (an app shell) caps the score at 69. The lowest cap that applies wins. The
+  An app shell (no text in the HTML until JavaScript runs) caps the score at 69; a page that is merely short does not. The lowest cap that applies wins. The
   report shows `rawScore`, `score` (after the cap) and `cap: { limit, reasons }` (null when no cap lowered the score),
   for example "Capped at 69: ChatGPT search, Claude and Perplexity are blocked by robots.txt. Without the cap: 93."
 - **Grade** (from the capped score): A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 55, F below.
 - **Points per fix** = how many overall points the check would add if it passed, or more when the fix also lifts the
-  cap. The action plan orders fixes by points per unit of effort.
+  cap. While the score is capped, fixes that cannot lift the cap on their own show their points "after the cap". The action plan orders fixes by points per unit of effort.
 
 The weights are a judgement call: being reachable and quotable matters most, and the classic SEO basics still count
 because AI search is built on top of search indexes. They live in
