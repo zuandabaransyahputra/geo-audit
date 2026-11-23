@@ -86,7 +86,8 @@ describe('Content-Signal in reports', () => {
     const rt = check(r, 'robots-txt');
     expect(rt.status).toBe('pass');
     expect(rt.details?.join('\n')).toMatch(/Content-Signal \(User-agent: \*, line \d+\): search=yes, ai-train=no/);
-    const plain = analyze(inputs({ robots: robots(CLOUDFLARE_MANAGED.replace(/^Content-signal.*$/m, '')) }));
+    // The signal only matters through the training opt-out it implies (same score as asking for it).
+    const plain = analyze(inputs({ options: { trainingOptOut: true }, robots: robots(CLOUDFLARE_MANAGED.replace(/^Content-signal.*$/m, '')) }));
     expect(plain.score).toBe(r.score);
   });
 });

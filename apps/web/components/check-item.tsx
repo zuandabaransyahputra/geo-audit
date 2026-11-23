@@ -5,7 +5,8 @@ import { Chevron } from './icons';
 import { InlineMd } from './inline-md';
 import { StatusIcon } from './status-badge';
 
-export function CheckItem({ check, impact }: { check: CheckResult; impact?: number }) {
+/** `optOutHref`: offered on a warning ai-training-bots check, links to the same report with ?training=optout. */
+export function CheckItem({ check, impact, optOutHref }: { check: CheckResult; impact?: number; optOutHref?: string }) {
   const open = check.status === 'fail';
   const hasBody = Boolean(check.fix || check.details?.length || check.why);
   const details = check.status === 'pass' ? check.details?.filter((d) => !/^allowed\s/.test(d)) : check.details;
@@ -65,6 +66,13 @@ export function CheckItem({ check, impact }: { check: CheckResult; impact?: numb
                     <code>{check.fix.snippet}</code>
                   </pre>
                 </div>
+              )}
+              {optOutHref && check.id === 'ai-training-bots' && check.status === 'warn' && (
+                <p>
+                  <Link href={optOutHref} className="text-xs text-primary underline-offset-4 hover:underline">
+                    I block these on purpose
+                  </Link>
+                </p>
               )}
             </div>
           )}

@@ -7,9 +7,9 @@ import { productStatuses } from './products';
 import { CATEGORIES, categoryScore, gradeFor, overallScore, scoreCap, tally, type CapInput } from './score';
 import { globalContentSignals } from './robots';
 import { normalizeInputUrl } from './ssrf';
-import type { AuditInputs, AuxFetch, CategoryResult, Fetched, Report } from './types';
+import type { AuditInputs, AuditRequestOptions, AuxFetch, CategoryResult, Fetched, Report } from './types';
 
-export interface AuditOptions {
+export interface AuditOptions extends AuditRequestOptions {
   fetchOptions?: SafeFetchOptions;
   /** Injected fetcher (tests). Defaults to `safeFetch`. */
   fetcher?: (url: string, opts: SafeFetchOptions) => Promise<Fetched>;
@@ -57,6 +57,7 @@ export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}):
     categories,
     page: { status: inputs.page.status, redirects: inputs.page.redirects, title: page.title, isAstro: page.isAstro },
     insights: buildInsights(ctx, ctx.url.hostname, categories, { score, rawScore, cap, capInput }),
+    options: { trainingOptOut: ctx.trainingOptOut, trainingOptOutSource: ctx.trainingOptOutSource },
     contentSignals: ctx.robots?.contentSignals.length ? { global: globalContentSignals(ctx.robots), lines: ctx.robots.contentSignals } : null,
     toolVersion: VERSION,
   };
@@ -87,7 +88,7 @@ export async function audit(input: string, options: AuditOptions = {}): Promise<
   ]);
 
   const sitemap = await findSitemap(fetcher, origin, robots, base);
-  return analyze({ page, robots, llms, llmsFull, sitemap }, { startedAt });
+  return analyze({ options: { trainingOptOut: Boolean(options.trainingOptOut) }, page, robots, llms, llmsFull, sitemap }, { startedAt });
 }
 
 async function findSitemap(

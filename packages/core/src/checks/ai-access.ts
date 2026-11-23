@@ -9,7 +9,7 @@ function robotsAllowSnippet(ctx: CheckContext, bots: Bot[]): string {
 }
 
 const TIER_WEIGHT = { major: 1, other: 0.5 } as const;
-const VALUE = { visible: 1, partly: 0.5, blocked: 0 } as const;
+const VALUE = { visible: 1, 'opted-out': 1, partly: 0.5, blocked: 0 } as const;
 
 export function checkAiSearchBots(ctx: CheckContext): CheckResult {
   const spec: Spec = {
@@ -71,6 +71,10 @@ export function checkAiTrainingBots(ctx: CheckContext): CheckResult {
   const blocked = verdicts.filter((v) => !v.allowed);
   const details = verdicts.map((v) => `${v.allowed ? 'allowed' : 'blocked'}  ${v.bot.token} (${v.bot.role})${!v.allowed && v.reason ? `: ${v.reason}` : ''}`);
   if (!blocked.length) return result(spec, 'pass', `All ${bots.length} training crawlers are allowed.`, { details });
+  if (ctx.trainingOptOut) {
+    const why = ctx.trainingOptOutSource === 'content-signal' ? ' robots.txt says `Content-Signal: ai-train=no`.' : '';
+    return result(spec, 'info', `Training crawlers are blocked on purpose, so this does not count against the score.${why}`, { details }, 1);
+  }
   return result(
     spec,
     'warn',
@@ -78,7 +82,7 @@ export function checkAiTrainingBots(ctx: CheckContext): CheckResult {
     {
       details,
       fix: {
-        text: 'If you want models to know your brand and content, allow these crawlers. Keep them blocked if you opted out on purpose.',
+        text: 'Only if you want models to learn from the site: allow these crawlers. If you block them on purpose, mark the opt-out and it stops counting.',
         snippet: robotsAllowSnippet(ctx, blocked.map((v) => v.bot)),
         lang: 'txt',
       },

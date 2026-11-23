@@ -79,7 +79,17 @@ export interface Report {
    * the lines that apply to every crawler (`User-agent: *` groups and lines before any group).
    */
   contentSignals: ContentSignals | null;
+  /** Options in effect for this report. */
+  options: { trainingOptOut: boolean; trainingOptOutSource: TrainingOptOutSource | null };
   toolVersion: string;
+}
+
+/** `request`: asked for (?training=optout, --training-optout); `content-signal`: robots.txt says ai-train=no for *. */
+export type TrainingOptOutSource = 'request' | 'content-signal';
+
+export interface AuditRequestOptions {
+  /** Training crawlers are blocked on purpose: do not count that against the score. */
+  trainingOptOut?: boolean;
 }
 
 export interface ContentSignals {
@@ -106,6 +116,8 @@ export type AuxFetch =
   | { ok: false; error: string };
 
 export interface AuditInputs {
+  /** What the person asked for; see `AuditRequestOptions`. */
+  options?: AuditRequestOptions;
   page: Fetched;
   robots: AuxFetch;
   llms: AuxFetch;

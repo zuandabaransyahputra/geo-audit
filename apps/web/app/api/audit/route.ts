@@ -1,12 +1,13 @@
-import { clientIp, getReport } from '@/lib/run-audit';
+import { clientIp, getReport, parseOptions } from '@/lib/run-audit';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
-/** GET /api/audit?url=example.com -> the full report as JSON. */
+/** GET /api/audit?url=example.com[&training=optout] -> the full report as JSON. */
 export async function GET(req: Request) {
-  const input = new URL(req.url).searchParams.get('url') ?? '';
-  const outcome = await getReport(input, clientIp(req.headers));
+  const params = new URL(req.url).searchParams;
+  const input = params.get('url') ?? '';
+  const outcome = await getReport(input, clientIp(req.headers), parseOptions(params));
   if (!outcome.ok) {
     const status = outcome.kind === 'rate-limit' ? 429 : outcome.kind === 'error' ? 500 : outcome.kind === 'fetch' ? 502 : 400;
     return Response.json(

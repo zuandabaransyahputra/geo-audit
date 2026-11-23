@@ -28,6 +28,7 @@ Options
   --markdown, --md   Print the report as Markdown
   --all              Show details and fixes for passing checks too
   --min-score <n>    Exit with code 1 when the score (after any cap) is below n (for CI)
+  --training-optout  You block AI training crawlers on purpose; do not count it against the score
   --no-color         Disable colours (NO_COLOR is respected too)
   -h, --help         Show this help
   -v, --version      Show the version
@@ -48,6 +49,7 @@ function main(): Promise<number> {
         md: { type: 'boolean' },
         all: { type: 'boolean' },
         'min-score': { type: 'string' },
+        'training-optout': { type: 'boolean' },
         'no-color': { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
@@ -72,7 +74,7 @@ function main(): Promise<number> {
     return Promise.resolve(2);
   }
   const color = !values['no-color'] && !process.env.NO_COLOR && Boolean(process.stdout.isTTY);
-  return run(positionals[0], { json: values.json, markdown: values.markdown || values.md, all: values.all, color, minScore });
+  return run(positionals[0], { json: values.json, markdown: values.markdown || values.md, all: values.all, color, minScore, trainingOptOut: values['training-optout'] });
 }
 
 interface RunOptions {
@@ -81,6 +83,7 @@ interface RunOptions {
   all?: boolean;
   color: boolean;
   minScore?: number;
+  trainingOptOut?: boolean;
 }
 
 async function run(url: string, o: RunOptions): Promise<number> {
@@ -89,7 +92,7 @@ async function run(url: string, o: RunOptions): Promise<number> {
   if (interactive) process.stderr.write(c.dim(`Auditing ${url} ...\n`));
   let report: Report;
   try {
-    report = await audit(url);
+    report = await audit(url, { trainingOptOut: o.trainingOptOut });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const kind = err instanceof BlockedUrlError ? 'Not allowed' : err instanceof FetchError ? 'Could not fetch the page' : 'Error';
@@ -136,7 +139,8 @@ function icon(c: Palette, s: Status): string {
 }
 
 function visIcon(c: Palette, v: Visibility): string {
-  return v === 'visible' ? c.green('● visible') : v === 'partly' ? c.yellow('◐ partly ') : c.red('○ blocked');
+  if (v === 'opted-out') return c.gray('◌ opted out');
+  return v === 'visible' ? c.green('● visible  ') : v === 'partly' ? c.yellow('◐ partly   ') : c.red('○ blocked  ');
 }
 
 function wrap(text: string, width: number, pad: string): string {
@@ -192,6 +196,7 @@ function render(r: Report, o: RunOptions, c: Palette): string {
   out.push('');
   out.push(`  Score  ${sc(c.bold(`${r.score}/100`))}  grade ${sc(c.bold(r.grade))}`);
   if (r.cap) out.push(wrap(c.yellow(capMessage(r.cap, r.rawScore)), 90, '  '));
+  if (r.options.trainingOptOut) out.push(c.gray(`  Training crawlers: blocked on purpose${r.options.trainingOptOutSource === 'content-signal' ? ' (Content-Signal ai-train=no)' : ''}, not counted.`));
   out.push('');
   const labelWidth = Math.max(...r.categories.map((x) => x.label.length));
   for (const cat of r.categories) {
@@ -234,7 +239,7 @@ function render(r: Report, o: RunOptions, c: Palette): string {
       out.push(`  ${c.cyan(label)}`);
       for (const f of items) {
         const gain = f.category === 'agent-readiness' ? c.gray('optional') : c.green(`+${points(f.points)}`);
-        out.push(`    · ${f.title} ${gain} ${c.gray(`· ${f.effortLabel}${f.learnMore ? ` · ${articleUrl(f.learnMore)}` : ''}`)}`);
+        out.push(`    · ${f.title} ${gain} ${c.gray(`· ${f.effortLabel}${f.note ? ` · ${f.note.toLowerCase()}` : ''}${f.learnMore ? ` · ${articleUrl(f.learnMore)}` : ''}`)}`);
       }
     }
     const proj = [`now ${plan.current}`];
@@ -248,7 +253,7 @@ function render(r: Report, o: RunOptions, c: Palette): string {
     for (const s of ins.strengths) out.push(`  ${c.green('+')} ${s}`);
   }
   out.push('');
-  out.push(`Shareable report: ${c.cyan(reportUrl(r.url))}`);
+  out.push(`Shareable report: ${c.cyan(reportUrl(r.url, { trainingOptOut: r.options.trainingOptOutSource === 'request' }))}`);
   out.push(c.dim(`Built by Zuanda Baransyah Putra. Need help fixing these? ${HIRE_URL}`));
   out.push('');
   return out.join('\n');

@@ -2,6 +2,6 @@ export { SITE_URL, REPO_URL, AUTHOR_NAME, AUTHOR_URL, HIRE_URL, ASTRO_GEO_URL, V
 
 export const EXAMPLES = ['zuanda.web.id', 'vercel.com', 'astro.build', 'nextjs.org'];
 
-export function reportHref(url: string): string {
-  return `/report?url=${encodeURIComponent(url)}`;
+export function reportHref(url: string, opts: { trainingOptOut?: boolean } = {}): string {
+  return `/report?url=${encodeURIComponent(url)}${opts.trainingOptOut ? '&training=optout' : ''}`;
 }

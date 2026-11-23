@@ -80,7 +80,8 @@ export type Effort = 'minutes' | 'hours' | 'project';
 /** Conservative effort estimates per check, for a typical site. Estimates, not promises. */
 export const EFFORT: Record<string, Effort> = {
   'ai-search-bots': 'minutes',
-  'ai-training-bots': 'minutes',
+  // Never a quick win: allowing training crawlers is a choice, not a fix.
+  'ai-training-bots': 'hours',
   'robots-txt': 'minutes',
   'indexing-directives': 'minutes',
   'llms-txt': 'hours',
@@ -108,6 +109,8 @@ export const EFFORT: Record<string, Effort> = {
   viewport: 'minutes',
 };
 
+const NOTE: Record<string, string> = { 'ai-training-bots': 'Only if you want models to learn from the site' };
+
 export const EFFORT_LABEL: Record<Effort, string> = { minutes: 'about 15 min', hours: '1–4 hours', project: 'days' };
 const EFFORT_COST: Record<Effort, number> = { minutes: 1, hours: 4, project: 16 };
 
@@ -122,6 +125,8 @@ export interface ActionItem {
   effort: Effort;
   effortLabel: string;
   learnMore?: ArticleSlug;
+  /** A caveat shown with the item, e.g. "Only if you want models to learn from the site". */
+  note?: string;
 }
 
 export interface ActionPlan {
@@ -163,6 +168,7 @@ export function actionPlan(categories: CategoryResult[], cap?: CapInput): Action
       effort,
       effortLabel: EFFORT_LABEL[effort],
       learnMore: LEARN_MORE[c.id],
+      ...(NOTE[c.id] ? { note: NOTE[c.id] } : {}),
     };
   };
   const optional = categories

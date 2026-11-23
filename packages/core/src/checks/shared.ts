@@ -1,7 +1,7 @@
 import type { PageModel } from '../html';
 import type { JsonLdExtraction } from '../jsonld';
 import type { ParsedRobots } from '../robots';
-import type { AuditInputs, CheckResult, Status } from '../types';
+import type { AuditInputs, CheckResult, Status, TrainingOptOutSource } from '../types';
 
 export interface CheckContext {
   inputs: AuditInputs;
@@ -13,6 +13,9 @@ export interface CheckContext {
   jsonld: JsonLdExtraction;
   siteName: string;
   description?: string;
+  /** Training crawlers are blocked on purpose (asked for, or Content-Signal ai-train=no for every crawler). */
+  trainingOptOut: boolean;
+  trainingOptOutSource: TrainingOptOutSource | null;
 }
 
 export type Spec = Omit<CheckResult, 'status' | 'score' | 'summary'>;

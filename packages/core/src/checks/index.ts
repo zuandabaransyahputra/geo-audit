@@ -1,7 +1,7 @@
 import { firstMeta, type PageModel } from '../html';
 import { ENTITY_TYPES, extractJsonLd, textValue } from '../jsonld';
 import { looksLikeHtml } from '../llms';
-import { parseRobots, type ParsedRobots } from '../robots';
+import { globalContentSignals, parseRobots, type ParsedRobots } from '../robots';
 import type { AuditInputs, CategoryId, CheckResult } from '../types';
 import { checkAiSearchBots, checkAiTrainingBots, checkIndexing, checkRobotsTxt } from './ai-access';
 import { checkInteractiveNames, checkLlmsFull, checkLlmsTxt, checkWebMcp } from './agent-readiness';
@@ -47,5 +47,7 @@ export function buildContext(inputs: AuditInputs, page: PageModel): CheckContext
     page.title?.split(/\s[|–—·:-]\s/).map((s) => s.trim()).filter(Boolean).sort((a, b) => a.length - b.length)[0] ??
     url.hostname.replace(/^www\./, '');
   const description = firstMeta(page, 'description', 'og:description');
-  return { inputs, page, html: inputs.page.body, url, robots, robotsState, jsonld, siteName, description };
+  const signalled = robots ? globalContentSignals(robots)?.['ai-train'] === 'no' : false;
+  const trainingOptOutSource = inputs.options?.trainingOptOut ? 'request' : signalled ? 'content-signal' : null;
+  return { inputs, page, html: inputs.page.body, url, robots, robotsState, jsonld, siteName, description, trainingOptOut: Boolean(trainingOptOutSource), trainingOptOutSource };
 }

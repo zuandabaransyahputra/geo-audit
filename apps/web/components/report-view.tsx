@@ -1,4 +1,6 @@
 import { capMessage, impact, isScored, type Report } from '@geo-audit/core';
+import Link from 'next/link';
+import { reportHref } from '@/lib/site';
 import { CheckItem } from './check-item';
 import { CopyButton } from './copy-button';
 import { HireCta } from './hire-cta';
@@ -23,6 +25,7 @@ function formatDate(iso: string) {
 
 export function ReportView({ report, markdown }: { report: Report; markdown: string }) {
   const tone = scoreTone(report.score);
+  const optOutHref = report.options.trainingOptOut ? undefined : reportHref(report.url, { trainingOptOut: true });
   // Footer counts cover scored categories only; Agent readiness has its own "x of y passed".
   const counts = report.categories
     .filter(isScored)
@@ -110,7 +113,18 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
         </div>
       </section>
 
-      <VisibilityPanel items={report.insights.visibility} />
+      {report.options.trainingOptOut && (
+        <p className="-mb-4 text-sm text-muted-foreground">
+          Training crawlers are treated as blocked on purpose
+          {report.options.trainingOptOutSource === 'content-signal' ? ' (robots.txt: Content-Signal ai-train=no)' : ''}.{' '}
+          {report.options.trainingOptOutSource === 'request' && (
+            <Link href={reportHref(report.url)} className="text-primary underline-offset-4 hover:underline">
+              Count them again
+            </Link>
+          )}
+        </p>
+      )}
+      <VisibilityPanel items={report.insights.visibility} optOutHref={optOutHref} />
       <ActionPlanPanel plan={report.insights.plan} />
       <StrengthsPanel items={report.insights.strengths} />
 
@@ -142,7 +156,7 @@ export function ReportView({ report, markdown }: { report: Report; markdown: str
           </div>
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             {c.checks.map((check) => (
-              <CheckItem key={check.id} check={check} impact={check.status === 'pass' || check.status === 'info' || !isScored(c) ? undefined : impact(check, report.categories)} />
+              <CheckItem key={check.id} check={check} optOutHref={optOutHref} impact={check.status === 'pass' || check.status === 'info' || !isScored(c) ? undefined : impact(check, report.categories)} />
             ))}
           </div>
         </section>

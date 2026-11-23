@@ -9,7 +9,8 @@ import { serverTextFails } from './checks/content';
 import type { CheckContext } from './checks/shared';
 import { isAllowed } from './robots';
 
-export type Visibility = 'visible' | 'partly' | 'blocked';
+/** `opted-out`: training crawlers blocked on purpose (training products only); shown neutral, never counted. */
+export type Visibility = 'visible' | 'partly' | 'blocked' | 'opted-out';
 export type Tier = 'major' | 'other';
 
 export interface ProductSpec {
@@ -244,7 +245,7 @@ export function directivesFor(ctx: CheckContext): { source: string; directives: 
 
 /* ------------------------------------------------------------------------------------------------ */
 
-const RANK: Record<Visibility, number> = { visible: 0, partly: 1, blocked: 2 };
+const RANK: Record<Visibility, number> = { visible: 0, 'opted-out': 0, partly: 1, blocked: 2 };
 const worse = (a: Visibility, b: Visibility): Visibility => (RANK[b] > RANK[a] ? b : a);
 
 export function list(items: string[]): string {
@@ -306,10 +307,11 @@ export function productStatuses(ctx: CheckContext): ProductStatus[] {
     const reasons: string[] = [];
     const blocked = crawlers.filter((c) => !c.allowed);
 
+    const optOut = ctx.trainingOptOut && !robotsDown;
     if (blocked.length) {
       const main = blocked.filter((c) => !c.training).map((c) => c.token);
       const training = blocked.filter((c) => c.training).map((c) => c.token);
-      const trainingText = training.length ? `${list(training)} (training only)` : '';
+      const trainingText = training.length ? `${list(training)} (training only${optOut ? ', opted out on purpose' : ''})` : '';
       if (robotsDown) reasons.push('robots.txt could not be fetched, so careful crawlers stay away');
       else reasons.push(`robots.txt blocks ${main.length && training.length ? `${list(main)}, and ${trainingText}` : main.length ? list(main) : trainingText}`);
     }
@@ -321,7 +323,14 @@ export function productStatuses(ctx: CheckContext): ProductStatus[] {
       } else if (c.primary) {
         // A crawler that may ignore robots.txt anyway only half counts.
         block(c.mayIgnore ? 'partly' : 'blocked', 'ai-search-bots', how, { robots: true });
+      } else if (c.training && optOut) {
+        // Opted out on purpose: mentioned in the reason, but it does not lower the status.
       } else block('partly', undefined, undefined, { answersToo: !c.training, robots: true });
+    }
+    if (p.kind === 'training' && optOut && blocked.length && st !== 'visible') {
+      st = 'opted-out';
+      ans = 'opted-out';
+      blockedBy.clear();
     }
     if (gone) {
       block('blocked', 'http-status', `out of reach because the page returns HTTP ${status}`);
@@ -344,7 +353,9 @@ export function productStatuses(ctx: CheckContext): ProductStatus[] {
     }
 
     let reason: string;
-    if (!reasons.length) {
+    if (st === 'opted-out') {
+      reason = `Blocked on purpose: robots.txt blocks ${list(blocked.map((c) => c.token))}, and the report treats that as a training opt-out.`;
+    } else if (!reasons.length) {
       reason = p.kind === 'training' ? 'Its crawlers are allowed, so it can learn from this page.' : 'Its crawlers are allowed and the page is readable.';
     } else {
       reason = `${capitalise(reasons.join('; '))}.`;
