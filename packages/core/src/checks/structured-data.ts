@@ -1,10 +1,52 @@
 import { ASTRO_GEO_URL } from '../constants';
+import { firstMeta } from '../html';
 import { ENTITY_TYPES, missingFields, textValue, USEFUL_TYPES } from '../jsonld';
 import type { CheckResult } from '../types';
 import { plural, result, truncate, type CheckContext, type Spec } from './shared';
 
-function jsonLdSnippet(ctx: CheckContext): string {
+const SOCIAL_HOSTS = ['linkedin.com', 'github.com', 'x.com', 'twitter.com', 'facebook.com', 'instagram.com', 'youtube.com', 'tiktok.com'];
+/** Share buttons and intents, not profiles. */
+const SHARE_PATH = /^\/(intent|share|sharer|shareArticle|sharing|dialog|hashtag|home)\b/i;
+
+/** Profile links to the social sites above, from the page's own anchors. */
+export function socialLinks(ctx: CheckContext, max = 8): string[] {
+  const out: string[] = [];
+  for (const a of ctx.page.anchors) {
+    let u: URL;
+    try {
+      u = new URL(a.href, ctx.url);
+    } catch {
+      continue;
+    }
+    const host = u.hostname.toLowerCase().replace(/^(www|m)\./, '');
+    if (!SOCIAL_HOSTS.includes(host) || u.pathname.length < 2 || SHARE_PATH.test(u.pathname)) continue;
+    u.hash = '';
+    u.search = '';
+    const href = u.href.replace(/\/$/, '');
+    if (!out.includes(href)) out.push(href);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/** A logo for Organization: apple-touch-icon, then a link icon, then og:image. Absolute, or undefined. */
+export function logoUrl(ctx: CheckContext): string | undefined {
+  const candidates = [...(ctx.page.links.get('apple-touch-icon') ?? []), ...(ctx.page.links.get('icon') ?? []), firstMeta(ctx.page, 'og:image')];
+  for (const c of candidates) {
+    if (!c || c.startsWith('data:')) continue;
+    try {
+      return new URL(c, ctx.url).href;
+    } catch {
+      continue;
+    }
+  }
+  return undefined;
+}
+
+export function jsonLdSnippet(ctx: CheckContext): string {
   const origin = ctx.url.origin;
+  const sameAs = socialLinks(ctx);
+  const logo = logoUrl(ctx);
   const graph = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -13,8 +55,8 @@ function jsonLdSnippet(ctx: CheckContext): string {
         '@id': `${origin}/#organization`,
         name: ctx.siteName,
         url: `${origin}/`,
-        logo: `${origin}/logo.png`,
-        sameAs: ['https://www.linkedin.com/company/your-company', 'https://github.com/your-company'],
+        ...(logo ? { logo } : {}),
+        ...(sameAs.length ? { sameAs } : {}),
       },
       {
         '@type': 'WebSite',
