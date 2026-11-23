@@ -1,7 +1,7 @@
 /** Public URL of the hosted web app. Change it here when the demo moves. */
 export const SITE_URL = 'https://geoaudit-tool.vercel.app';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 /** Honest, contactable identification. No personal data. */
 export const USER_AGENT = `GEO-Audit/${VERSION} (+${SITE_URL})`;
