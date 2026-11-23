@@ -1,4 +1,5 @@
 import type { PageModel } from '../html';
+import type { ProbeResult } from '../probe';
 import type { JsonLdExtraction } from '../jsonld';
 import type { ParsedRobots } from '../robots';
 import type { AuditInputs, CheckResult, Status, TrainingOptOutSource } from '../types';
@@ -16,6 +17,8 @@ export interface CheckContext {
   /** Training crawlers are blocked on purpose (asked for, or Content-Signal ai-train=no for every crawler). */
   trainingOptOut: boolean;
   trainingOptOutSource: TrainingOptOutSource | null;
+  /** Firewall probes classified against the baseline request. */
+  probes: ProbeResult[];
 }
 
 export type Spec = Omit<CheckResult, 'status' | 'score' | 'summary'>;

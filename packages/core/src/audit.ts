@@ -5,7 +5,9 @@ import { parsePage } from './html';
 import { buildInsights, LEARN_MORE } from './insights';
 import { productStatuses } from './products';
 import { CATEGORIES, categoryScore, gradeFor, overallScore, scoreCap, tally, type CapInput } from './score';
-import { globalContentSignals } from './robots';
+import { looksLikeHtml } from './llms';
+import { PROBE_MAX_BYTES, PROBE_TIMEOUT_MS, probeTargets, type ProbeFetch } from './probe';
+import { globalContentSignals, isAllowed, parseRobots } from './robots';
 import { normalizeInputUrl } from './ssrf';
 import type { AuditInputs, AuditRequestOptions, AuxFetch, CategoryResult, Fetched, Report } from './types';
 
@@ -58,6 +60,7 @@ export function analyze(inputs: AuditInputs, meta: { startedAt?: number } = {}):
     page: { status: inputs.page.status, redirects: inputs.page.redirects, title: page.title, isAstro: page.isAstro },
     insights: buildInsights(ctx, ctx.url.hostname, categories, { score, rawScore, cap, capInput }),
     options: { trainingOptOut: ctx.trainingOptOut, trainingOptOutSource: ctx.trainingOptOutSource },
+    probes: ctx.probes,
     contentSignals: ctx.robots?.contentSignals.length ? { global: globalContentSignals(ctx.robots), lines: ctx.robots.contentSignals } : null,
     toolVersion: VERSION,
   };
@@ -87,8 +90,31 @@ export async function audit(input: string, options: AuditOptions = {}): Promise<
     aux(fetcher, `${origin}/llms-full.txt`, { ...text, maxBytes: 64 * 1024, truncate: true }),
   ]);
 
-  const sitemap = await findSitemap(fetcher, origin, robots, base);
-  return analyze({ options: { trainingOptOut: Boolean(options.trainingOptOut) }, page, robots, llms, llmsFull, sitemap }, { startedAt });
+  const [sitemap, probes] = await Promise.all([findSitemap(fetcher, origin, robots, base), runProbes(fetcher, page, robots, base, Boolean(options.trainingOptOut))]);
+  return analyze({ options: { trainingOptOut: Boolean(options.trainingOptOut) }, page, robots, llms, llmsFull, sitemap, probes }, { startedAt });
+}
+
+/**
+ * Fetch the page again as up to four AI crawlers that robots.txt allows, through the same safe fetcher.
+ * Skipped when the normal request did not get a 2xx (nothing to compare against). No retries.
+ */
+async function runProbes(
+  fetcher: NonNullable<AuditOptions['fetcher']>,
+  page: Fetched,
+  robots: AuxFetch,
+  base: SafeFetchOptions,
+  optOut: boolean,
+): Promise<ProbeFetch[]> {
+  if (page.status < 200 || page.status >= 300) return [];
+  // Same robots.txt reading as the checks: unreachable or 5xx = keep out, 4xx = allow all.
+  if (!robots.ok || robots.res.status >= 500) return [];
+  const parsed = robots.res.status >= 200 && robots.res.status < 300 && !looksLikeHtml(robots.res.body) ? parseRobots(robots.res.body) : null;
+  const path = new URL(page.finalUrl);
+  const allowed = (token: string) => !parsed || isAllowed(parsed, token, path.pathname + path.search).allowed;
+  const signalled = parsed ? globalContentSignals(parsed)?.['ai-train'] === 'no' : false;
+  const targets = probeTargets(allowed, optOut || signalled);
+  const opts: SafeFetchOptions = { ...base, accept: HTML_TYPES, timeoutMs: PROBE_TIMEOUT_MS, maxBytes: PROBE_MAX_BYTES, truncate: true };
+  return Promise.all(targets.map(async (t) => ({ token: t.bot.token, userAgent: t.userAgent, res: await aux(fetcher, page.finalUrl, { ...opts, userAgent: t.userAgent }) })));
 }
 
 async function findSitemap(

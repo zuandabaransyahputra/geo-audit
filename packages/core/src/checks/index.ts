@@ -1,9 +1,10 @@
 import { firstMeta, type PageModel } from '../html';
 import { ENTITY_TYPES, extractJsonLd, textValue } from '../jsonld';
 import { looksLikeHtml } from '../llms';
+import { classifyProbe } from '../probe';
 import { globalContentSignals, parseRobots, type ParsedRobots } from '../robots';
 import type { AuditInputs, CategoryId, CheckResult } from '../types';
-import { checkAiSearchBots, checkAiTrainingBots, checkIndexing, checkRobotsTxt } from './ai-access';
+import { checkAiSearchBots, checkAiTrainingBots, checkFirewallProbe, checkIndexing, checkRobotsTxt } from './ai-access';
 import { checkInteractiveNames, checkLlmsFull, checkLlmsTxt, checkWebMcp } from './agent-readiness';
 import { checkAuthorship, checkFreshness, checkH1, checkHeadingOrder, checkImgAlt, checkLang, checkServerText } from './content';
 import { checkCanonical, checkDescription, checkHttps, checkOpenGraph, checkRedirects, checkSitemap, checkStatus, checkTitle, checkTwitter, checkViewport } from './seo';
@@ -14,7 +15,7 @@ export { botVerdicts, directivesFor } from './ai-access';
 export { escapeHtml, type CheckContext } from './shared';
 
 export const CHECKS: Record<CategoryId, ((ctx: CheckContext) => CheckResult)[]> = {
-  'ai-access': [checkAiSearchBots, checkIndexing, checkRobotsTxt, checkAiTrainingBots],
+  'ai-access': [checkAiSearchBots, checkIndexing, checkFirewallProbe, checkRobotsTxt, checkAiTrainingBots],
   content: [checkServerText, checkH1, checkHeadingOrder, checkImgAlt, checkLang, checkFreshness, checkAuthorship],
   'structured-data': [checkJsonLdPresent, checkJsonLdTypes, checkJsonLdFields, checkOtherStructured],
   seo: [checkStatus, checkHttps, checkTitle, checkDescription, checkSitemap, checkCanonical, checkOpenGraph, checkRedirects, checkTwitter, checkViewport],
@@ -49,5 +50,6 @@ export function buildContext(inputs: AuditInputs, page: PageModel): CheckContext
   const description = firstMeta(page, 'description', 'og:description');
   const signalled = robots ? globalContentSignals(robots)?.['ai-train'] === 'no' : false;
   const trainingOptOutSource = inputs.options?.trainingOptOut ? 'request' : signalled ? 'content-signal' : null;
-  return { inputs, page, html: inputs.page.body, url, robots, robotsState, jsonld, siteName, description, trainingOptOut: Boolean(trainingOptOutSource), trainingOptOutSource };
+  const probes = (inputs.probes ?? []).map((p) => classifyProbe(inputs.page, page.wordCount, p));
+  return { inputs, page, html: inputs.page.body, url, robots, robotsState, jsonld, siteName, description, trainingOptOut: Boolean(trainingOptOutSource), trainingOptOutSource, probes };
 }

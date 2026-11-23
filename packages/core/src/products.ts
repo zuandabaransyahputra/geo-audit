@@ -347,6 +347,13 @@ export function productStatuses(ctx: CheckContext): ProductStatus[] {
       block('partly');
       reasons.push('nosnippet / max-snippet:0 stops it quoting the page');
     }
+    // Firewall probes: a crawler robots.txt allows got blocked or challenged. Indicative, so "partly" at most.
+    for (const pr of ctx.probes ?? []) {
+      if ((pr.verdict === 'blocked' || pr.verdict === 'challenge') && crawlers.some((c) => c.token === pr.token && c.allowed)) {
+        block('partly');
+        reasons.push(`a test request as ${pr.token} ${pr.detail}, which points at a firewall or bot rule`);
+      }
+    }
     if (jsOnly && !p.rendersJs) {
       block('partly');
       reasons.push('the text only appears after JavaScript runs, which most AI crawlers skip');

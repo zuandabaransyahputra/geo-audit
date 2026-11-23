@@ -21,6 +21,7 @@ export { extractJsonLd, missingFields, nameOf, normalizeType, type JsonLdExtract
 export { parsePage, countWords, type PageModel } from './html';
 export { CATEGORIES, categoryScore, overallScore, gradeFor, impact, topFixes, isScored, tally, scoreCap, capMessage, capForBlocked, APP_SHELL_CAP, type ScoreCap, type CapInput } from './score';
 export { AI_BOTS, SCORED_BOTS, botByToken, type Bot, type BotPurpose } from './bots';
+export { classifyProbe, probeTargets, probeUserAgent, PROBE_TOKENS, type ProbeFetch, type ProbeResult, type ProbeVerdict } from './probe';
 export { productStatuses, type ProductStatus, type ProductSpec, type Tier, type CrawlerState } from './products';
 export { toMarkdown, reportUrl, articleUrl, points } from './markdown';
 export {

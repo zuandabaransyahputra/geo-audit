@@ -143,13 +143,15 @@ export default function Home() {
           </div>
           <div>
             <h3 className="mb-1 font-medium text-foreground">Privacy</h3>
-            We fetch the page you enter plus robots.txt, llms.txt, llms-full.txt and the sitemap. Results live in memory for 10 minutes for
-            shared links, then they are gone. No accounts, no tracking.
+            We fetch the page you enter plus robots.txt, llms.txt, llms-full.txt and the sitemap, and the page again up to 4 times as AI
+            crawlers to spot firewall blocks. Results live in memory for 10 minutes for shared links, then they are gone. No accounts, no
+            tracking.
           </div>
           <div>
             <h3 className="mb-1 font-medium text-foreground">Polite crawling</h3>
-            Requests identify as <code className="font-mono text-xs">GEO-Audit</code>, never run your JavaScript, stop at 2 MB and 8 s,
-            and only reach public addresses.
+            Requests identify as <code className="font-mono text-xs">GEO-Audit</code>. The up to 4 probe requests use the AI
+            crawler&apos;s documented user agent with <code className="font-mono text-xs">GEO-Audit-probe</code> added, so they are easy
+            to find in logs. Nothing runs your JavaScript, requests stop at 2 MB and 8 s, and only public addresses are reached.
           </div>
         </div>
       </section>

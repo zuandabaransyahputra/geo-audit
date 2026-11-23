@@ -171,3 +171,44 @@ export function checkIndexing(ctx: CheckContext): CheckResult {
 }
 
 export { botVerdicts, directivesFor };
+
+export function checkFirewallProbe(ctx: CheckContext): CheckResult {
+  const spec: Spec = {
+    id: 'firewall-probe',
+    category: 'ai-access',
+    title: 'AI crawlers get the same page as everyone else',
+    weight: 3,
+    why: 'A CDN or firewall bot rule can block AI crawlers that robots.txt allows; the crawler then sees an error or a challenge page instead of your content.',
+  };
+  const probes = ctx.probes;
+  const status = ctx.inputs.page.status;
+  if (!probes.length) {
+    const why = status < 200 || status >= 300 ? `the page itself returned HTTP ${status}` : 'robots.txt allows none of the crawlers we probe';
+    return result(spec, 'info', `No probes ran: ${why}.`, { vacuous: true });
+  }
+  const details = probes.map((p) => `${p.verdict === 'ok' ? 'ok' : p.verdict.toUpperCase()}  ${p.token}: ${p.detail}${p.words !== undefined && p.verdict === 'ok' ? `, ${p.words.toLocaleString('en-US')} words` : ''}`);
+  const bad = probes.filter((p) => p.verdict !== 'ok');
+  if (!bad.length) {
+    return result(spec, 'pass', `Requests as ${list(probes.map((p) => p.token))} got the same page as a normal request (HTTP ${status}).`, {
+      details,
+      notes: ['Indicative only: real crawlers are also verified by IP address, which a test request cannot imitate.'],
+    });
+  }
+  const what = bad.map((p) => `${p.token} ${p.detail}`);
+  const errorsOnly = bad.every((p) => p.verdict === 'error');
+  const summary = errorsOnly
+    ? `${list(what)}, while a normal request got ${status}. That may be a network issue or a firewall dropping the request; confirm this in your CDN logs.`
+    : `${list(what)} while a normal request got ${status}. A firewall or bot rule likely blocks ${bad.length === 1 ? 'it' : 'them'}. Real crawlers are also verified by IP, so confirm this in your CDN logs.`;
+  return result(
+    spec,
+    'warn',
+    summary,
+    {
+      details,
+      fix: {
+        text: 'Check the bot rules in front of the site. In Cloudflare, review the AI crawler and bot settings and any WAF custom rules; in Vercel, review Firewall rules and bot protection; on other WAFs, allowlist these crawlers by user agent and the IP ranges their vendors publish. Requests from this tool carry `GEO-Audit-probe` in the user agent, so you can find them in your logs.',
+      },
+    },
+    (probes.length - bad.length) / probes.length,
+  );
+}

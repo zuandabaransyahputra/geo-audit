@@ -31,6 +31,7 @@ export const LEARN_MORE: Record<string, ArticleSlug> = {
   'ai-search-bots': 'ai-crawlers-robots-txt',
   'ai-training-bots': 'ai-crawlers-robots-txt',
   'robots-txt': 'ai-crawlers-robots-txt',
+  'firewall-probe': 'ai-crawlers-robots-txt',
   'indexing-directives': 'ai-crawlers-robots-txt',
   'llms-txt': 'llms-txt',
   'llms-full-txt': 'llms-txt',
@@ -83,6 +84,7 @@ export const EFFORT: Record<string, Effort> = {
   // Never a quick win: allowing training crawlers is a choice, not a fix.
   'ai-training-bots': 'hours',
   'robots-txt': 'minutes',
+  'firewall-probe': 'hours',
   'indexing-directives': 'minutes',
   'llms-txt': 'hours',
   'llms-full-txt': 'hours',
@@ -205,6 +207,7 @@ export function actionPlan(categories: CategoryResult[], cap?: CapInput): Action
 const STRENGTH: Record<string, string> = {
   'ai-search-bots': 'Every AI search and assistant crawler is allowed in',
   'indexing-directives': 'Nothing stops search engines indexing or quoting the page',
+  'firewall-probe': 'Test requests as AI crawlers got the same page as a normal visitor',
   'llms-txt': 'A well-formed llms.txt gives assistants a map of the site',
   'llms-full-txt': 'llms-full.txt offers the content as clean Markdown',
   'ai-training-bots': 'Models can learn about the site from every major training crawler',
@@ -241,6 +244,7 @@ const GAP: Record<string, string> = {
   'llms-txt': 'there is no usable llms.txt to point assistants at the most important pages',
   'llms-full-txt': 'there is no llms-full.txt with the content as clean Markdown',
   'robots-txt': 'robots.txt is missing or broken, which leaves crawlers without clear rules or a sitemap hint',
+  'firewall-probe': 'a firewall or bot rule seems to block AI crawlers that robots.txt allows',
   'ai-training-bots': 'some AI training crawlers are blocked, so models learn less about the brand',
   'server-rendered-text': 'the content only appears after JavaScript runs, so most AI crawlers see an almost empty page',
   'single-h1': 'the page has no single clear H1 saying what it is about',

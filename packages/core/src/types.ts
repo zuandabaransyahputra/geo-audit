@@ -1,4 +1,5 @@
 import type { Insights } from './insights';
+import type { ProbeFetch, ProbeResult } from './probe';
 import type { ScoreCap } from './score';
 
 export type Status = 'pass' | 'warn' | 'fail' | 'info';
@@ -79,6 +80,8 @@ export interface Report {
    * the lines that apply to every crawler (`User-agent: *` groups and lines before any group).
    */
   contentSignals: ContentSignals | null;
+  /** Firewall probes, classified. Empty when none ran. Indicative: real crawlers are also verified by IP. */
+  probes: ProbeResult[];
   /** Options in effect for this report. */
   options: { trainingOptOut: boolean; trainingOptOutSource: TrainingOptOutSource | null };
   toolVersion: string;
@@ -124,4 +127,6 @@ export interface AuditInputs {
   llmsFull: AuxFetch;
   /** The sitemap that was found (from robots.txt or a default location), if any. */
   sitemap: AuxFetch & { source?: 'robots' | 'default' };
+  /** Firewall probes: the page fetched again as AI crawlers. Missing or empty when none ran. */
+  probes?: ProbeFetch[];
 }
