@@ -8,7 +8,7 @@ const CATEGORIES = [
     name: 'AI access',
     weight: 30,
     blurb: 'Can the crawlers behind ChatGPT, Claude, Perplexity and Google AI Overviews fetch and quote the page?',
-    checks: ['robots.txt rules for 15 AI and search crawlers', 'noindex, nosnippet and noai directives', 'llms.txt and llms-full.txt'],
+    checks: ['robots.txt rules for 16 AI and search crawlers', 'noindex, nosnippet and noai directives', 'llms.txt and llms-full.txt'],
   },
   {
     name: 'AI-readable content',

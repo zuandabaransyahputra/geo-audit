@@ -12,6 +12,9 @@ export function SiteHeader() {
           <span>GEO Audit</span>
         </Link>
         <nav className="flex items-center gap-1 text-sm">
+          <Link href="/insights" className="rounded-lg px-2.5 py-2 text-muted-foreground transition-colors hover:text-foreground sm:px-3">
+            Insights
+          </Link>
           <Link href="/#checks" className="hidden rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:text-foreground sm:block">
             What it checks
           </Link>

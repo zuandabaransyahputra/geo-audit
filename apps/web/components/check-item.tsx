@@ -1,4 +1,5 @@
 import type { CheckResult } from '@geo-audit/core';
+import Link from 'next/link';
 import { CopyButton } from './copy-button';
 import { Chevron } from './icons';
 import { InlineMd } from './inline-md';
@@ -30,6 +31,14 @@ export function CheckItem({ check, impact }: { check: CheckResult; impact?: numb
           <p className="text-muted-foreground">
             <span className="font-medium text-foreground">Why it matters: </span>
             {check.why}
+            {check.learnMore && (
+              <>
+                {' '}
+                <Link href={`/insights/${check.learnMore}`} className="whitespace-nowrap font-medium text-primary underline-offset-4 hover:underline">
+                  Learn more
+                </Link>
+              </>
+            )}
           </p>
           {details && details.length > 0 && (
             <ul className="space-y-1 rounded-lg bg-muted/60 p-3 font-mono text-xs leading-relaxed">

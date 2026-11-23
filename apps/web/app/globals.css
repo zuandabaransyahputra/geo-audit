@@ -110,3 +110,130 @@
     transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
+
+/* Article typography */
+.prose {
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  color: var(--foreground);
+  max-width: 44rem;
+}
+.prose > * + * {
+  margin-top: 1.15em;
+}
+.prose h2 {
+  margin-top: 2.2em;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  scroll-margin-top: 5rem;
+}
+.prose h3 {
+  margin-top: 1.8em;
+  font-size: 1.175rem;
+  line-height: 1.4;
+  font-weight: 600;
+  scroll-margin-top: 5rem;
+}
+.prose h2 + *,
+.prose h3 + * {
+  margin-top: 0.6em;
+}
+.prose .anchor {
+  float: left;
+  margin-left: -1.1em;
+  width: 1.1em;
+  color: var(--muted-foreground);
+  opacity: 0;
+  text-decoration: none;
+  font-weight: 400;
+}
+.prose h2:hover .anchor,
+.prose h3:hover .anchor {
+  opacity: 0.6;
+}
+.prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.prose strong {
+  font-weight: 600;
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.35em;
+}
+.prose ul {
+  list-style: disc;
+}
+.prose ol {
+  list-style: decimal;
+}
+.prose li + li {
+  margin-top: 0.35em;
+}
+.prose li::marker {
+  color: var(--muted-foreground);
+}
+.prose li > ul,
+.prose li > ol {
+  margin-top: 0.35em;
+}
+.prose :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--muted);
+  border-radius: 0.3rem;
+  padding: 0.1em 0.35em;
+  overflow-wrap: anywhere;
+}
+.prose pre {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.65;
+  background: var(--code);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+}
+.prose blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+  color: var(--muted-foreground);
+}
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+  display: block;
+  overflow-x: auto;
+}
+.prose th,
+.prose td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.5em 0.75em 0.5em 0;
+  text-align: left;
+  vertical-align: top;
+}
+.prose th {
+  font-weight: 600;
+}
+.prose hr {
+  border-color: var(--border);
+  margin: 2.5em 0;
+}
+.prose li:has(> input[type='checkbox']) {
+  list-style: none;
+  margin-left: -1.35em;
+  padding-left: 1.6em;
+  text-indent: -1.6em;
+}
+.prose li > input[type='checkbox'] {
+  margin-right: 0.55em;
+  accent-color: var(--primary);
+  vertical-align: -0.1em;
+}

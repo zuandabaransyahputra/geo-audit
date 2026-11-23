@@ -1,3 +1,4 @@
+import { ARTICLES } from '@/lib/insights';
 import { AUTHOR_NAME, AUTHOR_URL, HIRE_URL, REPO_URL, SITE_URL } from '@/lib/site';
 
 export const dynamic = 'force-static';
@@ -7,7 +8,7 @@ export function GET() {
 
 > Free, open-source tool that scores how well a website can be found, read and cited by AI search and assistants (ChatGPT, Claude, Perplexity, Google AI Overviews), with concrete fixes.
 
-It checks robots.txt rules for 15 AI and search crawlers, noindex/nosnippet directives, llms.txt and llms-full.txt, JSON-LD structured data, server-rendered content, headings, alt text, dates, authorship and SEO basics (title, description, canonical, Open Graph, sitemap, HTTPS). Built by ${AUTHOR_NAME}.
+It checks robots.txt rules for 16 AI and search crawlers, noindex/nosnippet directives, llms.txt and llms-full.txt, JSON-LD structured data, server-rendered content, headings, alt text, dates, authorship and SEO basics (title, description, canonical, Open Graph, sitemap, HTTPS). Built by ${AUTHOR_NAME}.
 
 ## Use it
 
@@ -16,11 +17,19 @@ It checks robots.txt rules for 15 AI and search crawlers, noindex/nosnippet dire
 - [JSON API](${SITE_URL}/api/audit?url=example.com): The same report as JSON
 - [CLI](https://www.npmjs.com/package/ai-geo-audit): \`npx ai-geo-audit example.com\`
 
+## Insights
+
+${ARTICLES.map((a) => `- [${a.title}](${SITE_URL}/insights/${a.slug}): ${a.description}`).join('\n')}
+
 ## Project
 
 - [Source code](${REPO_URL}): MIT-licensed monorepo (core checks, CLI, Next.js app)
 - [Author](${AUTHOR_URL}): ${AUTHOR_NAME}, freelance web developer
 - [Hire the author](${HIRE_URL}): Help with GEO, SEO and fast Next.js / Astro sites
+
+## Optional
+
+- [Full text of all insights](${SITE_URL}/llms-full.txt): Every article as one Markdown file
 `;
   return new Response(body, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 }
